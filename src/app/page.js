@@ -143,19 +143,16 @@ export default function Home() {
 
     if (!isBoss) {
       if (isHighLevelPlayer || reqLevel >= 15) {
-        // Level 15+ Mini Monster Battle: Decimal Multiplication (소수 × 자연수)
-        const decimalNum = Math.round((Math.floor(Math.random() * 35 + 5) * 0.2) * 10) / 10; // e.g. 1.2, 2.5, 4.2
-        const naturalNum = Math.floor(Math.random() * 8) + 2; // 2~9
+        const decimalNum = Math.round((Math.floor(Math.random() * 35 + 5) * 0.2) * 10) / 10;
+        const naturalNum = Math.floor(Math.random() * 8) + 2;
         const ans = Math.round(decimalNum * naturalNum * 100) / 100;
         return { questionText: `${decimalNum} × ${naturalNum}`, answer: ans };
       } else {
-        // Below Lv 15 Mini Monster Battle: 1-digit Multiplication (구구단)
         const n1 = Math.floor(Math.random() * 8) + 2;
         const n2 = Math.floor(Math.random() * 8) + 2;
         return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
       }
     } else {
-      // Boss Raid: Decimal Math
       const isDivision = Math.random() < 0.5;
 
       if (reqLevel <= 10) {
@@ -247,7 +244,7 @@ export default function Home() {
     executeTurn(currentQuiz.actionType, isCorrect, currentQuiz);
   };
 
-  // Open Inn Rest Challenge (Level 15+ -> Decimal Multiplication!)
+  // Open Inn Rest Challenge
   const handleStartInnChallenge = () => {
     if (playerCurrentHp >= stats.maxHp) {
       alert("이미 체력이 가득 차있습니다!");
@@ -258,13 +255,11 @@ export default function Home() {
 
     const generatedQuestions = Array.from({ length: 10 }, () => {
       if (isHighLevel) {
-        // Level 15+ Inn Rest: Decimal Multiplication (소수 × 자연수)
-        const decimalNum = Math.round((Math.floor(Math.random() * 25 + 5) * 0.2) * 10) / 10; // e.g. 1.5, 2.4, 3.5
-        const naturalNum = Math.floor(Math.random() * 8) + 2; // 2~9
+        const decimalNum = Math.round((Math.floor(Math.random() * 25 + 5) * 0.2) * 10) / 10;
+        const naturalNum = Math.floor(Math.random() * 8) + 2;
         const answer = Math.round(decimalNum * naturalNum * 100) / 100;
         return { questionText: `${decimalNum} × ${naturalNum}`, answer };
       } else {
-        // Below Lv 15 Inn Rest: Standard 1-digit multiplication
         const n1 = Math.floor(Math.random() * 8) + 2;
         const n2 = Math.floor(Math.random() * 8) + 2;
         return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
@@ -472,15 +467,21 @@ export default function Home() {
       setBattleText(enemyText);
       newLogs.unshift(`[Turn ${battle.turn}] ${enemyText}`);
 
-      const nextPlayerState = { ...player, currentHp: nextPlayerHp };
-      setPlayer(nextPlayerState);
-
       if (nextPlayerHp <= 0) {
-        const loseText = `💀 모험가가 쓰러졌습니다... (마을에서 50% 체력으로 복구됩니다)`;
+        // Player Death Penalty: Lose 20% (0.2x) of current XP & respawn at 50% HP
+        const xpPenalty = Math.floor(player.xp * 0.2);
+        const remainingXp = Math.max(0, player.xp - xpPenalty);
+        const respawnHp = Math.round(stats.maxHp * 0.5);
+
+        const loseText = `💀 모험가가 쓰러졌습니다... (경험치 -${xpPenalty}XP [20% 감소], 마을에서 50% 체력으로 복구됩니다)`;
         setBattleText(loseText);
         newLogs.unshift(loseText);
 
-        const respawnState = { ...player, currentHp: Math.round(stats.maxHp * 0.5) };
+        const respawnState = {
+          ...player,
+          xp: remainingXp,
+          currentHp: respawnHp,
+        };
         setPlayer(respawnState);
         handleSave(respawnState);
 
@@ -493,6 +494,9 @@ export default function Home() {
           isWin: false,
         });
       } else {
+        const nextPlayerState = { ...player, currentHp: nextPlayerHp };
+        setPlayer(nextPlayerState);
+
         setBattle({
           ...battle,
           enemyHp: currentEnemyHp,
@@ -548,7 +552,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">Lv.15+ 여관/사냥터 소수×자연수 연산 시스템</p>
+            <p className="text-xs text-slate-400">사망 페널티: 경험치 20% 차감 적용 완료</p>
           </div>
         </div>
 
@@ -727,7 +731,7 @@ export default function Home() {
               <p className="text-xs text-slate-400">
                 {player.level >= 15
                   ? "📐 Lv.15 달성! 이제 사냥터 스킬/특수방어 시 [소수 × 자연수] 연산이 출제됩니다!"
-                  : "일반 몬스터 사냥 시 스킬/방어 시 1자리 구구단 문제가 출제됩니다. (Lv.15부터 소수 연산)"}
+                  : "일반 몬스터 사냥 시 스킬/방어 시 1자리 구구단 문제가 출제됩니다. (사망 시 경험치 20% 감소)"}
               </p>
 
               <div className="space-y-4">
@@ -853,9 +857,9 @@ export default function Home() {
           {/* TAB 3: BOSS */}
           {activeTab === "boss" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전 (Lv.15+ 은밀한 특수 공격!)</h3>
+              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전 (사망 시 XP 20% 손실)</h3>
               <p className="text-xs text-slate-400">
-                🔥 Lv.15 이상의 강력한 보스는 경고 표시 없이 은밀하게 특수 공격(1.5배)을 감행합니다! (시전 후 3턴 쿨타임)
+                🔥 보스전에서 패배하여 쓰러질 경우 현재 경험치(XP)의 20%가 차감되므로 신중하게 도전하세요!
               </p>
 
               <div className="space-y-4">
