@@ -28,17 +28,20 @@ export default function Home() {
   const [shopCategory, setShopCategory] = useState("weapons");
 
   // Battle state
-  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0 }
+  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0, specialDefCooldown: 0 }
   const [battle, setBattle] = useState(null);
   const [battleText, setBattleText] = useState("");
   const [saveNotification, setSaveNotification] = useState("");
   const [hitEffect, setHitEffect] = useState(null);
 
   // Multiplication Quiz State
-  const [quizModal, setQuizModal] = useState(null); // { num1, num2, answer, userAnswer: "" }
+  const [quizModal, setQuizModal] = useState(null);
 
   // Stats
   const stats = calculatePlayerStats(player);
+
+  // Ensure player has currentHp initialized
+  const playerCurrentHp = player.currentHp !== undefined ? player.currentHp : stats.maxHp;
 
   // Auth Listener
   useEffect(() => {
@@ -79,7 +82,7 @@ export default function Home() {
     }
 
     if (leveledUp) {
-      alert(`🎉 레벨 업! Lv.${newLevel} 달성! 상점의 새 장비와 강력한 보스가 해금되었습니다!`);
+      alert(`🎉 레벨 업! Lv.${newLevel} 달성! 스탯이 상승하고 새로운 장비/보스가 해금되었습니다!`);
     }
 
     return { level: newLevel, xp: newXp };
@@ -101,14 +104,22 @@ export default function Home() {
     }
   };
 
-  // Start Battle
+  // Start Battle (HP Persistent!)
   const startBattle = (target, isBoss) => {
     if (isBoss && player.level < target.reqLevel) {
       alert(`🔒 ${target.name} 보스는 레벨 ${target.reqLevel} 이상부터 도전 가능합니다!`);
       return;
     }
 
-    const initialText = `${target.name}(이)가 무대에 등장했다! 모험가는 무엇을 할까?`;
+    // Check if player HP is 0, auto heal to 50% HP
+    let startingHp = playerCurrentHp;
+    if (startingHp <= 0) {
+      startingHp = Math.round(stats.maxHp * 0.5);
+      alert("🩹 체력이 0이었던 모험가가 마을에서 50% 체력을 회복하고 전투에 진입합니다!");
+      setPlayer({ ...player, currentHp: startingHp });
+    }
+
+    const initialText = `${target.name}(이)가 무대에 등장했다! (현재 HP: ${startingHp} / ${stats.maxHp})`;
     setBattleText(initialText);
 
     setBattle({
@@ -116,12 +127,13 @@ export default function Home() {
       isBoss,
       enemyHp: target.hp || target.maxHp,
       maxEnemyHp: target.hp || target.maxHp,
-      playerHp: stats.maxHp,
+      playerHp: startingHp, // Carry over current HP!
       logs: [initialText],
       isOver: false,
       isWin: false,
       turn: 1,
-      skillCooldown: 0, // 0 means ready
+      skillCooldown: 0,
+      specialDefCooldown: 0,
     });
   };
 
@@ -143,16 +155,15 @@ export default function Home() {
     });
   };
 
-  // Submit Multiplication Answer
+  // Submit Quiz
   const handleQuizSubmit = (e) => {
     e.preventDefault();
     if (!quizModal) return;
 
     const isCorrect = parseInt(quizModal.userAnswer, 10) === quizModal.answer;
     const currentQuiz = quizModal;
-    setQuizModal(null); // Close quiz modal
+    setQuizModal(null);
 
-    // Execute skill turn
     executeTurn("skill", isCorrect, currentQuiz);
   };
 
@@ -161,10 +172,12 @@ export default function Home() {
     if (!battle || battle.isOver) return;
 
     let newLogs = [...battle.logs];
-    let isDefending = false;
+    let defenseMultiplier = 1.0; // 1.0 = normal damage, 0.5 = normal defend, 0.1 = special defend
     let playerDamage = 0;
     let currentEnemyHp = battle.enemyHp;
-    let nextCooldown = Math.max(0, battle.skillCooldown - 1);
+    let currentPlayerHp = battle.playerHp;
+    let nextSkillCooldown = Math.max(0, battle.skillCooldown - 1);
+    let nextSpecialDefCooldown = Math.max(0, battle.specialDefCooldown - 1);
 
     // 1. PLAYER ACTION
     if (actionType === "attack") {
@@ -181,9 +194,9 @@ export default function Home() {
         setHitEffect("enemy");
         setTimeout(() => setHitEffect(null), 500);
 
-        playerDamage = Math.round(calculateDamage(stats.totalAtk, battle.target.def) * 1.5); // 1.5x damage!
+        playerDamage = Math.round(calculateDamage(stats.totalAtk, battle.target.def) * 1.5);
         currentEnemyHp = Math.max(0, battle.enemyHp - playerDamage);
-        nextCooldown = 2; // 2 turns cooldown
+        nextSkillCooldown = 2; // 2 turns cooldown
 
         const text = `🎉 [구구단 정답! ${quizData.num1}×${quizData.num2}=${quizData.answer}] ✨ 1.5배 강력한 필살 스킬 발동! ${battle.target.name}에게 ${playerDamage} 데미지!`;
         setBattleText(text);
@@ -192,11 +205,21 @@ export default function Home() {
         const text = `❌ [구구단 오답! 입력: ${quizData.userAnswer || "없음"}] 스킬 실패! 턴을 허비하고 몬스터에게 턴이 넘어갑니다.`;
         setBattleText(text);
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
-        nextCooldown = 0; // Cooldown not consumed on fail
       }
     } else if (actionType === "defend") {
-      isDefending = true;
-      const text = `🛡️ 모험가는 방어 자세를 취했다! (이번 턴 받은 피해 50% 감소)`;
+      defenseMultiplier = 0.5; // 50% damage reduction (0.5x)
+      const text = `🛡️ 일반 방어 자세! 이번 턴 피격 데미지 50% 감소 (0.5배)`;
+      setBattleText(text);
+      newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+    } else if (actionType === "specialDefend") {
+      if (battle.specialDefCooldown > 0) {
+        alert(`⏳ 특수 방어 쿨타임 중입니다! (${battle.specialDefCooldown}턴 남음)`);
+        return;
+      }
+      defenseMultiplier = 0.1; // 90% damage reduction (0.1x)
+      nextSpecialDefCooldown = 3; // 3 turns cooldown
+
+      const text = `🛡️✨ 특수 방어 발동! 이번 턴 피격 데미지 90% 차단! (0.1배)`;
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
     } else if (actionType === "potion") {
@@ -205,11 +228,11 @@ export default function Home() {
         return;
       }
       const heal = 100;
-      const nextHp = Math.min(stats.maxHp, battle.playerHp + heal);
+      currentPlayerHp = Math.min(stats.maxHp, battle.playerHp + heal);
       const text = `🧪 포션을 사용하여 체력을 +${heal} 회복했다!`;
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
-      setPlayer({ ...player, potions: player.potions - 1 });
+      setPlayer({ ...player, potions: player.potions - 1, currentHp: currentPlayerHp });
     }
 
     // Check Enemy Defeat
@@ -231,6 +254,7 @@ export default function Home() {
         gold: player.gold + earnedGold,
         xp: newXp,
         level: newLevel,
+        currentHp: currentPlayerHp, // Save remaining HP!
         defeatedBossIds: newDefeatedBosses,
       };
 
@@ -240,6 +264,7 @@ export default function Home() {
       setBattle({
         ...battle,
         enemyHp: 0,
+        playerHp: currentPlayerHp,
         logs: newLogs,
         isOver: true,
         isWin: true,
@@ -247,26 +272,34 @@ export default function Home() {
       return;
     }
 
-    // 2. ENEMY COUNTER ATTACK (Monster ALWAYS attacks on its turn)
+    // 2. ENEMY COUNTER ATTACK (Monster ALWAYS counter attacks)
     setTimeout(() => {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
 
       let rawEnemyDamage = calculateDamage(battle.target.atk, stats.totalDef);
-      if (isDefending) {
-        rawEnemyDamage = Math.max(1, Math.round(rawEnemyDamage * 0.5)); // 50% reduction
-      }
+      let finalEnemyDamage = Math.max(1, Math.round(rawEnemyDamage * defenseMultiplier));
 
-      const nextPlayerHp = Math.max(0, battle.playerHp - rawEnemyDamage);
-      const enemyText = `💥 ${battle.target.name}의 반격! 모험가에게 ${rawEnemyDamage} 데미지! ${isDefending ? "(방어 성공: 데미지 50% 감소)" : ""}`;
+      const nextPlayerHp = Math.max(0, currentPlayerHp - finalEnemyDamage);
+      const enemyText = `💥 ${battle.target.name}의 반격! 모험가에게 ${finalEnemyDamage} 데미지! ${
+        defenseMultiplier === 0.1 ? "(특수 방어: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
+      }`;
       
       setBattleText(enemyText);
       newLogs.unshift(`[Turn ${battle.turn}] ${enemyText}`);
 
+      // Save player HP continuously
+      const nextPlayerState = { ...player, currentHp: nextPlayerHp };
+      setPlayer(nextPlayerState);
+
       if (nextPlayerHp <= 0) {
-        const loseText = `💀 모험가가 쓰러졌습니다... 전투에서 패배했습니다.`;
+        const loseText = `💀 모험가가 쓰러졌습니다... (마을에서 50% 체력으로 복구됩니다)`;
         setBattleText(loseText);
         newLogs.unshift(loseText);
+
+        const respawnState = { ...player, currentHp: Math.round(stats.maxHp * 0.5) };
+        setPlayer(respawnState);
+        handleSave(respawnState);
 
         setBattle({
           ...battle,
@@ -283,7 +316,8 @@ export default function Home() {
           playerHp: nextPlayerHp,
           logs: newLogs,
           turn: battle.turn + 1,
-          skillCooldown: nextCooldown,
+          skillCooldown: nextSkillCooldown,
+          specialDefCooldown: nextSpecialDefCooldown,
         });
       }
     }, 600);
@@ -313,6 +347,17 @@ export default function Home() {
     handleSave(next);
   };
 
+  // Heal at Town (Rest)
+  const handleRestAtTown = () => {
+    const cost = 30;
+    if (player.gold < cost) return alert("골드가 부족합니다! (휴식비: 30G)");
+    if (playerCurrentHp >= stats.maxHp) return alert("이미 체력이 가득 차있습니다!");
+    const next = { ...player, gold: player.gold - cost, currentHp: stats.maxHp };
+    setPlayer(next);
+    handleSave(next);
+    alert("🍺 여관에서 휴식을 취해 체력을 100% 회복했습니다!");
+  };
+
   const getHpBarColor = (current, max) => {
     const pct = (current / max) * 100;
     if (pct > 50) return "bg-emerald-500";
@@ -330,7 +375,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">턴제 사냥 & 구구단 스킬 시스템</p>
+            <p className="text-xs text-slate-400">특수 방어(-90%) & HP 연속 유지 시스템</p>
           </div>
         </div>
 
@@ -403,12 +448,25 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3">
-                <span className="text-xs text-slate-400 block">최대 HP</span>
-                <span className="text-base font-bold text-emerald-400">❤️ {stats.maxHp}</span>
+            {/* Persistent HP Bar */}
+            <div className="space-y-1.5 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-300">현재 체력 (연속 유지)</span>
+                <span className="text-emerald-400">{playerCurrentHp} / {stats.maxHp} HP</span>
               </div>
+              <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-700">
+                <div className={`h-full transition-all duration-300 ${getHpBarColor(playerCurrentHp, stats.maxHp)}`} style={{ width: `${Math.max(0, (playerCurrentHp / stats.maxHp) * 100)}%` }}></div>
+              </div>
+              <button
+                onClick={handleRestAtTown}
+                className="w-full mt-2 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition flex items-center justify-center gap-1"
+              >
+                🍺 여관에서 휴식하기 (30G로 100% 회복)
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3 text-center">
               <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3">
                 <span className="text-xs text-slate-400 block">공격력</span>
                 <span className="text-base font-bold text-rose-400">⚔️ {stats.totalAtk}</span>
@@ -469,7 +527,7 @@ export default function Home() {
                 activeTab === "hunt" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
-              <span>⚔️</span> 사냥터 (7타/10타)
+              <span>⚔️</span> 사냥터 (연속 HP)
             </button>
             <button
               onClick={() => setActiveTab("shop")}
@@ -493,7 +551,7 @@ export default function Home() {
           {activeTab === "hunt" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
-              <p className="text-xs text-slate-400">7타 공격에 몬스터 처치 / 몬스터 공격 10타에 모험가 사망 밸런스</p>
+              <p className="text-xs text-slate-400">전투 후 남은 HP는 다음 전투에 그대로 유지됩니다. (여관에서 30G로 100% 회복 가능)</p>
 
               <div className="space-y-4">
                 {HUNTING_GROUNDS.map((zone) => {
@@ -647,10 +705,10 @@ export default function Home() {
         </section>
       </main>
 
-      {/* 🔴 MULTIPLICATION QUIZ MODAL FOR SKILL */}
+      {/* 🔴 MULTIPLICATION QUIZ MODAL */}
       {quizModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-4 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in fade-in">
+          <div className="bg-slate-900 border-4 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5">
             <div className="inline-block p-3 rounded-full bg-amber-500/20 text-amber-400 text-3xl mb-1">
               ✨
             </div>
@@ -659,12 +717,10 @@ export default function Home() {
               <p className="text-xs text-slate-400 mt-1">정답을 맞히면 1.5배 강력한 스킬이 발동합니다!</p>
             </div>
 
-            {/* Math Question */}
             <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 text-3xl font-black text-amber-400 tracking-wider font-mono">
               {quizModal.num1} × {quizModal.num2} = ?
             </div>
 
-            {/* Answer Input */}
             <form onSubmit={handleQuizSubmit} className="space-y-3">
               <input
                 type="number"
@@ -763,46 +819,58 @@ export default function Home() {
               <span className="text-xs font-semibold text-amber-400 animate-bounce">▼</span>
             </div>
 
-            {/* 3. BOTTOM COMMAND BUTTONS */}
+            {/* 3. BOTTOM COMMAND BUTTONS (공격 / 일반방어 / 특수방어 / 필살기 / 포션) */}
             {!battle.isOver ? (
-              <div className="bg-slate-800 p-3 grid grid-cols-2 gap-2.5">
+              <div className="bg-slate-800 p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {/* 1. ATTACK */}
                 <button
                   onClick={() => executeTurn("attack")}
-                  className="bg-rose-600 hover:bg-rose-500 text-white font-black py-3 px-4 rounded-2xl border-4 border-rose-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
+                  className="bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-rose-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
                 >
-                  <span className="flex items-center gap-1.5">⚔️ 공격 (ATTACK)</span>
-                  <span className="text-[10px] bg-rose-800 px-2 py-0.5 rounded text-rose-200">기본</span>
+                  <span>⚔️ 일반 공격</span>
+                  <span className="text-[10px] bg-rose-800 px-1.5 py-0.5 rounded text-rose-200">기본</span>
                 </button>
 
-                {/* 2. DEFEND */}
+                {/* 2. REGULAR DEFEND (0.5x) */}
                 <button
                   onClick={() => executeTurn("defend")}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 px-4 rounded-2xl border-4 border-blue-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-blue-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
                 >
-                  <span className="flex items-center gap-1.5">🛡️ 방어 (DEFEND)</span>
-                  <span className="text-[10px] bg-blue-800 px-2 py-0.5 rounded text-blue-200">-50%피해</span>
+                  <span>🛡️ 방어</span>
+                  <span className="text-[10px] bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">0.5배피해</span>
                 </button>
 
-                {/* 3. SKILL (구구단 퀴즈) */}
+                {/* 3. SPECIAL DEFEND (0.1x, Cooldown 3) */}
                 <button
-                  disabled={battle.skillCooldown > 0}
-                  onClick={handleOpenSkillQuiz}
-                  className="bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:border-slate-800 disabled:text-slate-500 text-slate-950 font-black py-3 px-4 rounded-2xl border-4 border-amber-700 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
+                  disabled={battle.specialDefCooldown > 0}
+                  onClick={() => executeTurn("specialDefend")}
+                  className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:border-slate-800 disabled:text-slate-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-cyan-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
                 >
-                  <span className="flex items-center gap-1.5">✨ 필살기 (구구단)</span>
-                  <span className="text-[10px] bg-amber-700 text-amber-100 px-2 py-0.5 rounded">
-                    {battle.skillCooldown > 0 ? `쿨다운 ${battle.skillCooldown}턴` : "+50%DMG"}
+                  <span>🛡️✨ 특수 방어</span>
+                  <span className="text-[10px] bg-cyan-900 text-cyan-200 px-1.5 py-0.5 rounded">
+                    {battle.specialDefCooldown > 0 ? `${battle.specialDefCooldown}턴 쿨` : "0.1배(90%차단)"}
                   </span>
                 </button>
 
-                {/* 4. POTION */}
+                {/* 4. SKILL (구구단) */}
+                <button
+                  disabled={battle.skillCooldown > 0}
+                  onClick={handleOpenSkillQuiz}
+                  className="bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:border-slate-800 disabled:text-slate-500 text-slate-950 font-black py-2.5 px-3 rounded-2xl border-4 border-amber-700 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
+                >
+                  <span>✨ 필살기</span>
+                  <span className="text-[10px] bg-amber-700 text-amber-100 px-1.5 py-0.5 rounded">
+                    {battle.skillCooldown > 0 ? `${battle.skillCooldown}턴 쿨` : "1.5배DMG"}
+                  </span>
+                </button>
+
+                {/* 5. POTION */}
                 <button
                   onClick={() => executeTurn("potion")}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 px-4 rounded-2xl border-4 border-emerald-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-emerald-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:col-span-2"
                 >
-                  <span className="flex items-center gap-1.5">🧪 포션 (ITEM)</span>
-                  <span className="text-[10px] bg-emerald-800 px-2 py-0.5 rounded text-emerald-200">{player.potions}개</span>
+                  <span>🧪 포션 (ITEM)</span>
+                  <span className="text-[10px] bg-emerald-800 px-2 py-0.5 rounded text-emerald-200">{player.potions}개 (+100 HP)</span>
                 </button>
               </div>
             ) : (
