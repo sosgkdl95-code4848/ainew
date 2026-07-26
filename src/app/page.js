@@ -28,7 +28,6 @@ export default function Home() {
   const [shopCategory, setShopCategory] = useState("weapons");
 
   // Battle state
-  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0, specialDefCooldown: 0, bossSpecialCooldown: 0 }
   const [battle, setBattle] = useState(null);
   const [battleText, setBattleText] = useState("");
   const [saveNotification, setSaveNotification] = useState("");
@@ -134,17 +133,29 @@ export default function Home() {
       turn: 1,
       skillCooldown: 0,
       specialDefCooldown: 0,
-      bossSpecialCooldown: 0, // Cooldown timer after boss fires a Special Attack
+      bossSpecialCooldown: 0,
     });
   };
 
-  // Generate Math Problem
+  // Generate Math Problem (Level 15+ -> Decimal x Natural Number!)
   const generateBattleMathProblem = (isBoss, reqLevel = 10) => {
+    const isHighLevelPlayer = player.level >= 15;
+
     if (!isBoss) {
-      const n1 = Math.floor(Math.random() * 8) + 2;
-      const n2 = Math.floor(Math.random() * 8) + 2;
-      return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
+      if (isHighLevelPlayer || reqLevel >= 15) {
+        // Level 15+ Mini Monster Battle: Decimal Multiplication (소수 × 자연수)
+        const decimalNum = Math.round((Math.floor(Math.random() * 35 + 5) * 0.2) * 10) / 10; // e.g. 1.2, 2.5, 4.2
+        const naturalNum = Math.floor(Math.random() * 8) + 2; // 2~9
+        const ans = Math.round(decimalNum * naturalNum * 100) / 100;
+        return { questionText: `${decimalNum} × ${naturalNum}`, answer: ans };
+      } else {
+        // Below Lv 15 Mini Monster Battle: 1-digit Multiplication (구구단)
+        const n1 = Math.floor(Math.random() * 8) + 2;
+        const n2 = Math.floor(Math.random() * 8) + 2;
+        return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
+      }
     } else {
+      // Boss Raid: Decimal Math
       const isDivision = Math.random() < 0.5;
 
       if (reqLevel <= 10) {
@@ -236,17 +247,28 @@ export default function Home() {
     executeTurn(currentQuiz.actionType, isCorrect, currentQuiz);
   };
 
-  // Open Inn Rest Challenge
+  // Open Inn Rest Challenge (Level 15+ -> Decimal Multiplication!)
   const handleStartInnChallenge = () => {
     if (playerCurrentHp >= stats.maxHp) {
       alert("이미 체력이 가득 차있습니다!");
       return;
     }
 
+    const isHighLevel = player.level >= 15;
+
     const generatedQuestions = Array.from({ length: 10 }, () => {
-      const n1 = Math.floor(Math.random() * 8) + 2;
-      const n2 = Math.floor(Math.random() * 8) + 2;
-      return { num1: n1, num2: n2, answer: n1 * n2 };
+      if (isHighLevel) {
+        // Level 15+ Inn Rest: Decimal Multiplication (소수 × 자연수)
+        const decimalNum = Math.round((Math.floor(Math.random() * 25 + 5) * 0.2) * 10) / 10; // e.g. 1.5, 2.4, 3.5
+        const naturalNum = Math.floor(Math.random() * 8) + 2; // 2~9
+        const answer = Math.round(decimalNum * naturalNum * 100) / 100;
+        return { questionText: `${decimalNum} × ${naturalNum}`, answer };
+      } else {
+        // Below Lv 15 Inn Rest: Standard 1-digit multiplication
+        const n1 = Math.floor(Math.random() * 8) + 2;
+        const n2 = Math.floor(Math.random() * 8) + 2;
+        return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
+      }
     });
 
     setInnChallenge({
@@ -256,6 +278,7 @@ export default function Home() {
       userAnswer: "",
       isComplete: false,
       isSuccess: false,
+      isHighLevel,
     });
   };
 
@@ -265,7 +288,9 @@ export default function Home() {
     if (!innChallenge || innChallenge.isComplete) return;
 
     const currentQ = innChallenge.questions[innChallenge.currentIndex];
-    const isCorrect = parseInt(innChallenge.userAnswer, 10) === currentQ.answer;
+    const userVal = parseFloat(innChallenge.userAnswer);
+    const isCorrect = Math.abs(userVal - currentQ.answer) < 0.001;
+    
     const nextCorrect = isCorrect ? innChallenge.correctCount + 1 : innChallenge.correctCount;
     const nextIndex = innChallenge.currentIndex + 1;
 
@@ -408,11 +433,6 @@ export default function Home() {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
 
-      // Boss Special Attack Logic:
-      // - Trigger Condition: battle.isBoss && turn >= 3 && bossSpecialCooldown === 0
-      // - 50% random chance when eligible
-      // - After firing: bossSpecialCooldown set to 3 (Must wait 3 turns after use!)
-      // - Level 15+ Bosses (Lv.15 Frost Dragon, Lv.20 Demon Lord): NO explicit warning banner tag!
       let isBossSpecialAttack = false;
       const currentBossCooldown = battle.bossSpecialCooldown || 0;
 
@@ -422,7 +442,7 @@ export default function Home() {
 
       let nextBossSpecialCooldown = currentBossCooldown > 0 ? currentBossCooldown - 1 : 0;
       if (isBossSpecialAttack) {
-        nextBossSpecialCooldown = 3; // Reset 3-turn cooldown after Special Attack
+        nextBossSpecialCooldown = 3;
       }
 
       let bossAttackMultiplier = isBossSpecialAttack ? 1.5 : 1.0;
@@ -433,7 +453,6 @@ export default function Home() {
       
       let enemyText = "";
       if (isBossSpecialAttack) {
-        // Level 15+ Bosses do NOT show explicit warning banner tag
         const showWarningTag = (battle.target.reqLevel || 10) < 15;
         if (showWarningTag) {
           enemyText = `🔥 [보스 특수 스킬 공격!] ${battle.target.name}의 분노한 필살 공격! 모험가에게 ${finalEnemyDamage} 데미지! ${
@@ -529,7 +548,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">Lv.15+ 보스 은밀한 특수 공격 (3턴 쿨타임)</p>
+            <p className="text-xs text-slate-400">Lv.15+ 여관/사냥터 소수×자연수 연산 시스템</p>
           </div>
         </div>
 
@@ -615,7 +634,7 @@ export default function Home() {
                 onClick={handleStartInnChallenge}
                 className="w-full mt-1 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border border-emerald-400/40 text-white text-xs font-extrabold transition shadow flex items-center justify-center gap-1.5 active:scale-95"
               >
-                🍺 마을 여관 휴식 (구구단 10문제 도전!)
+                🍺 마을 여관 휴식 {player.level >= 15 ? "(소수×자연수 10문제)" : "(구구단 10문제)"}
               </button>
             </div>
 
@@ -681,7 +700,7 @@ export default function Home() {
                 activeTab === "hunt" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
-              <span>⚔️</span> 사냥터 (일반 구구단)
+              <span>⚔️</span> 사냥터 {player.level >= 15 ? "(소수×자연수)" : "(구구단)"}
             </button>
             <button
               onClick={() => setActiveTab("shop")}
@@ -697,7 +716,7 @@ export default function Home() {
                 activeTab === "boss" ? "bg-rose-600 text-white shadow-md animate-pulse" : "text-rose-400 hover:text-rose-300 hover:bg-slate-800/50"
               }`}
             >
-              <span>👑</span> 보스 레이드 (Lv.15+ 은밀한 특공)
+              <span>👑</span> 보스 레이드
             </button>
           </div>
 
@@ -705,7 +724,11 @@ export default function Home() {
           {activeTab === "hunt" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
-              <p className="text-xs text-slate-400">일반 몬스터 사냥 시 스킬/방어 시 1자리 구구단 문제가 출제됩니다.</p>
+              <p className="text-xs text-slate-400">
+                {player.level >= 15
+                  ? "📐 Lv.15 달성! 이제 사냥터 스킬/특수방어 시 [소수 × 자연수] 연산이 출제됩니다!"
+                  : "일반 몬스터 사냥 시 스킬/방어 시 1자리 구구단 문제가 출제됩니다. (Lv.15부터 소수 연산)"}
+              </p>
 
               <div className="space-y-4">
                 {HUNTING_GROUNDS.map((zone) => {
@@ -873,8 +896,10 @@ export default function Home() {
               <div className="inline-block p-3 rounded-full bg-emerald-500/20 text-emerald-400 text-3xl mb-2">
                 🍺
               </div>
-              <h3 className="text-xl font-black text-white">마을 여관 구구단 시험</h3>
-              <p className="text-xs text-slate-400 mt-1">10문제 중 6문제 이상 맞히면 체력이 100% 회복됩니다!</p>
+              <h3 className="text-xl font-black text-white">마을 여관 연산 시험</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                {innChallenge.isHighLevel ? "📐 [Lv.15+ 전용] 소수 × 자연수 10문제 중 6개 이상 맞추세요!" : "10문제 중 6문제 이상 맞히면 체력이 100% 회복됩니다!"}
+              </p>
             </div>
 
             {!innChallenge.isComplete ? (
@@ -888,14 +913,15 @@ export default function Home() {
                 </div>
 
                 <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-4xl font-black text-emerald-400 text-center tracking-wider font-mono shadow-inner">
-                  {innChallenge.questions[innChallenge.currentIndex].num1} × {innChallenge.questions[innChallenge.currentIndex].num2} = ?
+                  {innChallenge.questions[innChallenge.currentIndex].questionText} = ?
                 </div>
 
                 <form onSubmit={handleInnQuestionSubmit} className="space-y-3">
                   <input
                     type="number"
+                    step="any"
                     autoFocus
-                    placeholder="정답 입력"
+                    placeholder="정답 입력 (소수/자연수)"
                     value={innChallenge.userAnswer}
                     onChange={(e) => setInnChallenge({ ...innChallenge, userAnswer: e.target.value })}
                     className="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-500 rounded-xl py-3 px-4 text-center font-bold text-2xl text-white outline-none"
@@ -968,7 +994,7 @@ export default function Home() {
                 {quizModal.actionType === "skill" ? "필살기 발동 연산 퀴즈" : "특수 방어 발동 연산 퀴즈"}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
-                {quizModal.isBoss ? "🔥 [보스전 전용] 소수 연산 정답 시 기술이 성공합니다!" : "정답을 맞히면 기술이 성공적으로 발동합니다!"}
+                {quizModal.isBoss || player.level >= 15 ? "📐 정답을 입력하여 기술을 성공시키세요!" : "정답을 맞히면 기술이 성공적으로 발동합니다!"}
               </p>
             </div>
 
