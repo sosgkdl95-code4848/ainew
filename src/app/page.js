@@ -28,16 +28,16 @@ export default function Home() {
   const [shopCategory, setShopCategory] = useState("weapons");
 
   // Battle state
+  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0, specialDefCooldown: 0, lastBossSpecialTurn: false }
   const [battle, setBattle] = useState(null);
   const [battleText, setBattleText] = useState("");
   const [saveNotification, setSaveNotification] = useState("");
   const [hitEffect, setHitEffect] = useState(null);
 
-  // Math Quiz Modal State (for Battle Skill & Special Defend)
-  // { actionType: "skill"|"specialDefend", questionText: "", answer: 0, userAnswer: "", isBoss: false }
+  // Math Quiz Modal State
   const [quizModal, setQuizModal] = useState(null);
 
-  // Inn Rest 10-Question Challenge State
+  // Inn Rest Challenge State
   const [innChallenge, setInnChallenge] = useState(null);
 
   // Stats
@@ -134,62 +134,51 @@ export default function Home() {
       turn: 1,
       skillCooldown: 0,
       specialDefCooldown: 0,
+      lastBossSpecialTurn: false, // Tracks if previous boss attack was special
     });
   };
 
-  // Generate Math Problem (Normal Hunting: 1-digit Multiplication / Boss Battle: Decimal Math)
+  // Generate Math Problem
   const generateBattleMathProblem = (isBoss, reqLevel = 10) => {
     if (!isBoss) {
-      // Normal Mini-Monster: 1-digit Multiplication (구구단)
       const n1 = Math.floor(Math.random() * 8) + 2;
       const n2 = Math.floor(Math.random() * 8) + 2;
-      return {
-        questionText: `${n1} × ${n2}`,
-        answer: n1 * n2,
-      };
+      return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
     } else {
-      // Boss Raid: Decimal Math (소수의 나눗셈 & 곱셈)
-      // Level 10 Boss: 1-decimal place (e.g. 2.5 x 4 = 10, 6.4 / 2 = 3.2)
-      // Level 15 Boss: 2-decimal places (e.g. 1.25 x 4 = 5, 7.5 / 3 = 2.5)
-      // Level 20 Boss: 3-decimal places / Harder decimals (e.g. 0.125 x 8 = 1, 12.5 / 0.5 = 25)
-
       const isDivision = Math.random() < 0.5;
 
       if (reqLevel <= 10) {
-        // Lv 10 Boss (소수점 1자리)
         if (isDivision) {
           const ans = Math.round((Math.floor(Math.random() * 20 + 2) * 0.4) * 10) / 10;
-          const divisor = Math.floor(Math.random() * 4) + 2; // 2~5
+          const divisor = Math.floor(Math.random() * 4) + 2;
           const dividend = Math.round(ans * divisor * 10) / 10;
           return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
         } else {
-          const factor1 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.2) * 10) / 10; // e.g. 1.5, 2.5, 3.4
-          const factor2 = Math.floor(Math.random() * 8) + 2; // 2~9
+          const factor1 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.2) * 10) / 10;
+          const factor2 = Math.floor(Math.random() * 8) + 2;
           const ans = Math.round(factor1 * factor2 * 100) / 100;
           return { questionText: `${factor1} × ${factor2}`, answer: ans };
         }
       } else if (reqLevel <= 15) {
-        // Lv 15 Boss (소수점 2자리)
         if (isDivision) {
-          const ans = Math.round((Math.floor(Math.random() * 20 + 2) * 0.25) * 100) / 100; // e.g. 1.25, 2.5
+          const ans = Math.round((Math.floor(Math.random() * 20 + 2) * 0.25) * 100) / 100;
           const divisor = [2, 4, 5][Math.floor(Math.random() * 3)];
           const dividend = Math.round(ans * divisor * 100) / 100;
           return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
         } else {
-          const factor1 = Math.round((Math.floor(Math.random() * 20 + 1) * 0.25) * 100) / 100; // e.g. 1.25, 2.75
+          const factor1 = Math.round((Math.floor(Math.random() * 20 + 1) * 0.25) * 100) / 100;
           const factor2 = [2, 4, 8][Math.floor(Math.random() * 3)];
           const ans = Math.round(factor1 * factor2 * 100) / 100;
           return { questionText: `${factor1} × ${factor2}`, answer: ans };
         }
       } else {
-        // Lv 20 Boss (소수점 3자리 / 고난도 소수 연산)
         if (isDivision) {
           const divisor = [0.5, 0.25, 2, 4][Math.floor(Math.random() * 4)];
           const ans = Math.round((Math.floor(Math.random() * 30 + 5) * 0.5) * 10) / 10;
           const dividend = Math.round(ans * divisor * 1000) / 1000;
           return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
         } else {
-          const factor1 = Math.round((Math.floor(Math.random() * 15 + 1) * 0.125) * 1000) / 1000; // e.g. 0.125, 0.375
+          const factor1 = Math.round((Math.floor(Math.random() * 15 + 1) * 0.125) * 1000) / 1000;
           const factor2 = [4, 8, 16][Math.floor(Math.random() * 3)];
           const ans = Math.round(factor1 * factor2 * 1000) / 1000;
           return { questionText: `${factor1} × ${factor2}`, answer: ans };
@@ -240,7 +229,7 @@ export default function Home() {
     if (!quizModal) return;
 
     const userVal = parseFloat(quizModal.userAnswer);
-    const isCorrect = Math.abs(userVal - quizModal.answer) < 0.001; // exact float comparison
+    const isCorrect = Math.abs(userVal - quizModal.answer) < 0.001;
     const currentQuiz = quizModal;
     setQuizModal(null);
 
@@ -354,12 +343,12 @@ export default function Home() {
       nextSpecialDefCooldown = 3;
 
       if (quizSuccess) {
-        defenseMultiplier = 0.1; // 90% reduction
+        defenseMultiplier = 0.1;
         const text = `🎉 [정답! ${quizData.questionText} = ${quizData.answer}] 🛡️✨ 특수 방어 성공! 이번 턴 피격 데미지 90% 차단! (0.1배)`;
         setBattleText(text);
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
       } else {
-        defenseMultiplier = 1.0; // Fail -> full damage
+        defenseMultiplier = 1.0;
         const text = `❌ [오답! 문제: ${quizData.questionText} (정답: ${quizData.answer})] 특수 방어 실패! 90% 차단에 실패하여 일반 피해를 입습니다.`;
         setBattleText(text);
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
@@ -414,19 +403,37 @@ export default function Home() {
       return;
     }
 
-    // 2. ENEMY COUNTER ATTACK
+    // 2. ENEMY COUNTER ATTACK (With Boss Special Attack Rules)
     setTimeout(() => {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
 
-      let rawEnemyDamage = calculateDamage(battle.target.atk, stats.totalDef);
+      // Boss Attack Type Decision:
+      // - Special Attack allowed ONLY on Turn 3 or later (battle.turn >= 3)
+      // - Cannot happen consecutively (!battle.lastBossSpecialTurn)
+      // - Random 50% chance when conditions are met!
+      let isBossSpecialAttack = false;
+      if (battle.isBoss && battle.turn >= 3 && !battle.lastBossSpecialTurn) {
+        isBossSpecialAttack = Math.random() < 0.5;
+      }
+
+      let bossAttackMultiplier = isBossSpecialAttack ? 1.5 : 1.0;
+      let rawEnemyDamage = calculateDamage(battle.target.atk * bossAttackMultiplier, stats.totalDef);
       let finalEnemyDamage = Math.max(1, Math.round(rawEnemyDamage * defenseMultiplier));
 
       const nextPlayerHp = Math.max(0, currentPlayerHp - finalEnemyDamage);
-      const enemyText = `💥 ${battle.target.name}의 반격! 모험가에게 ${finalEnemyDamage} 데미지! ${
-        defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
-      }`;
       
+      let enemyText = "";
+      if (isBossSpecialAttack) {
+        enemyText = `🔥 [보스 특수 스킬 공격!] ${battle.target.name}의 분노한 필살 공격! 모험가에게 ${finalEnemyDamage} 데미지! ${
+          defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
+        }`;
+      } else {
+        enemyText = `💥 ${battle.target.name}의 기본 공격! 모험가에게 ${finalEnemyDamage} 데미지! ${
+          defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
+        }`;
+      }
+
       setBattleText(enemyText);
       newLogs.unshift(`[Turn ${battle.turn}] ${enemyText}`);
 
@@ -459,6 +466,7 @@ export default function Home() {
           turn: battle.turn + 1,
           skillCooldown: nextSkillCooldown,
           specialDefCooldown: nextSpecialDefCooldown,
+          lastBossSpecialTurn: isBossSpecialAttack, // Record if this attack was special
         });
       }
     }, 600);
@@ -505,7 +513,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">보스전 소수의 나눗셈/곱셈 퀴즈 연동</p>
+            <p className="text-xs text-slate-400">보스 3턴 이후 특수 공격 & 랜덤 패턴 시스템</p>
           </div>
         </div>
 
@@ -673,7 +681,7 @@ export default function Home() {
                 activeTab === "boss" ? "bg-rose-600 text-white shadow-md animate-pulse" : "text-rose-400 hover:text-rose-300 hover:bg-slate-800/50"
               }`}
             >
-              <span>👑</span> 보스 레이드 (소수 연산)
+              <span>👑</span> 보스 레이드 (랜덤 특수공격)
             </button>
           </div>
 
@@ -681,7 +689,7 @@ export default function Home() {
           {activeTab === "hunt" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
-              <p className="text-xs text-slate-400">일반 사냥터에서는 스킬/방어 시 1자리 구구단 문제가 출제됩니다.</p>
+              <p className="text-xs text-slate-400">일반 몬스터 사냥 시 스킬/방어 시 1자리 구구단 문제가 출제됩니다.</p>
 
               <div className="space-y-4">
                 {HUNTING_GROUNDS.map((zone) => {
@@ -803,12 +811,12 @@ export default function Home() {
             </div>
           )}
 
-          {/* TAB 3: BOSS (소수의 나눗셈 & 곱셈 퀴즈!) */}
+          {/* TAB 3: BOSS */}
           {activeTab === "boss" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전 (소수 연산 퀴즈!)</h3>
+              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전 (랜덤 특수공격 패턴)</h3>
               <p className="text-xs text-slate-400">
-                🔥 보스전에서는 필살기와 특수방어 시 <span className="text-amber-400 font-bold">소수의 나눗셈 & 곱셈 퀴즈</span>가 출제됩니다!
+                🔥 보스는 3턴 이후부터 기본 공격 및 강력한 특수 공격(1.5배)을 랜덤 시전합니다! (연속 시전 불가)
               </p>
 
               <div className="space-y-4">
@@ -822,8 +830,8 @@ export default function Home() {
                         <div>
                           <h4 className="font-black text-lg text-white">{boss.name} <span className="text-xs text-rose-300">Lv.{boss.reqLevel}</span></h4>
                           <p className="text-xs text-slate-300 mt-0.5">{boss.desc}</p>
-                          <p className="text-[11px] text-amber-400 font-semibold mt-1">
-                            📐 보스 난이도 퀴즈: {boss.reqLevel === 10 ? "소수점 1자리 연산" : boss.reqLevel === 15 ? "소수점 2자리 연산" : "소수점 3자리 / 고난도 소수 연산"}
+                          <p className="text-[11px] text-rose-400 font-semibold mt-1">
+                            🔥 특수 공격 조건: 3턴 이후 50% 확률 발동 (연속 발동 불가)
                           </p>
                         </div>
                       </div>
@@ -932,7 +940,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🔴 BATTLE MATH QUIZ MODAL (Normal: 1-digit Multiplication / Boss: Decimal Math!) */}
+      {/* 🔴 BATTLE MATH QUIZ MODAL */}
       {quizModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className={`bg-slate-900 border-4 ${quizModal.isBoss ? "border-rose-500 shadow-rose-500/20" : "border-amber-500"} rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in fade-in`}>
@@ -948,7 +956,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Question Text */}
             <div className={`bg-slate-800 p-4 rounded-2xl border border-slate-700 text-3xl font-black ${quizModal.isBoss ? "text-rose-400" : "text-amber-400"} tracking-wider font-mono`}>
               {quizModal.questionText} = ?
             </div>
