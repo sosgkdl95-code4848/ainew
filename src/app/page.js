@@ -805,7 +805,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Auth & Save */}
+        {/* Auth Info */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-700">
             <span className="text-xs font-medium text-slate-300">
@@ -815,13 +815,6 @@ export default function Home() {
               로그아웃
             </button>
           </div>
-
-          <button
-            onClick={() => handleSave()}
-            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow transition active:scale-95 flex items-center gap-1"
-          >
-            💾 저장하기
-          </button>
         </div>
       </header>
 
