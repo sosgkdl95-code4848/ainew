@@ -23,8 +23,8 @@ export const HUNTING_GROUNDS = [
     name: "초심자의 숲 (Lv.1 ~ 5)",
     reqLevel: 1,
     monsters: [
-      { id: "m_1", name: "말랑 슬라임", hp: 88, maxHp: 88, atk: 15, def: 2, goldReward: 25, xpReward: 30, icon: "🟢" },
-      { id: "m_2", name: "야생 멧돼지", hp: 140, maxHp: 140, atk: 25, def: 3, goldReward: 35, xpReward: 45, icon: "🐗" },
+      { id: "m_1", name: "말랑 슬라임", level: 1, reqLevel: 1, hp: 88, maxHp: 88, atk: 15, def: 2, goldReward: 25, xpReward: 30, icon: "🟢" },
+      { id: "m_2", name: "야생 멧돼지", level: 3, reqLevel: 3, hp: 140, maxHp: 140, atk: 25, def: 3, goldReward: 35, xpReward: 45, icon: "🐗" },
     ],
   },
   {
@@ -32,8 +32,8 @@ export const HUNTING_GROUNDS = [
     name: "어둠의 동굴 (Lv.6 ~ 10)",
     reqLevel: 6,
     monsters: [
-      { id: "m_3", name: "고블린 정찰병", hp: 343, maxHp: 343, atk: 58, def: 6, goldReward: 65, xpReward: 80, icon: "👺" },
-      { id: "m_4", name: "해골 전사", hp: 380, maxHp: 380, atk: 64, def: 8, goldReward: 90, xpReward: 110, icon: "💀" },
+      { id: "m_3", name: "고블린 정찰병", level: 6, reqLevel: 6, hp: 343, maxHp: 343, atk: 58, def: 6, goldReward: 65, xpReward: 80, icon: "👺" },
+      { id: "m_4", name: "해골 전사", level: 8, reqLevel: 8, hp: 380, maxHp: 380, atk: 64, def: 8, goldReward: 90, xpReward: 110, icon: "💀" },
     ],
   },
   {
@@ -41,8 +41,8 @@ export const HUNTING_GROUNDS = [
     name: "황량한 황무지 (Lv.11 ~ 15)",
     reqLevel: 11,
     monsters: [
-      { id: "m_5", name: "오크 버서커", hp: 595, maxHp: 595, atk: 99, def: 10, goldReward: 150, xpReward: 180, icon: "👹" },
-      { id: "m_6", name: "다크 위저드", hp: 640, maxHp: 640, atk: 110, def: 12, goldReward: 220, xpReward: 260, icon: "🧙‍♂️" },
+      { id: "m_5", name: "오크 버서커", level: 11, reqLevel: 11, hp: 595, maxHp: 595, atk: 99, def: 10, goldReward: 150, xpReward: 180, icon: "👹" },
+      { id: "m_6", name: "다크 위저드", level: 13, reqLevel: 13, hp: 640, maxHp: 640, atk: 110, def: 12, goldReward: 220, xpReward: 260, icon: "🧙‍♂️" },
     ],
   },
   {
@@ -50,8 +50,8 @@ export const HUNTING_GROUNDS = [
     name: "심연의 틈새 (Lv.16 ~ 20)",
     reqLevel: 16,
     monsters: [
-      { id: "m_7", name: "헬하운드", hp: 910, maxHp: 910, atk: 149, def: 15, goldReward: 380, xpReward: 450, icon: "🐺🔥" },
-      { id: "m_8", name: "그림자 기사", hp: 1000, maxHp: 1000, atk: 165, def: 18, goldReward: 550, xpReward: 650, icon: "👤⚔️" },
+      { id: "m_7", name: "헬하운드", level: 16, reqLevel: 16, hp: 910, maxHp: 910, atk: 149, def: 15, goldReward: 380, xpReward: 450, icon: "🐺🔥" },
+      { id: "m_8", name: "그림자 기사", level: 18, reqLevel: 18, hp: 1000, maxHp: 1000, atk: 165, def: 18, goldReward: 550, xpReward: 650, icon: "👤⚔️" },
     ],
   },
 ];
@@ -61,6 +61,7 @@ export const BOSSES = [
   {
     id: "boss_10",
     name: "고블린 국왕",
+    level: 10,
     reqLevel: 10,
     hp: 600,
     maxHp: 600,
@@ -74,6 +75,7 @@ export const BOSSES = [
   {
     id: "boss_15",
     name: "서리 드래곤",
+    level: 15,
     reqLevel: 15,
     hp: 920,
     maxHp: 920,
@@ -87,6 +89,7 @@ export const BOSSES = [
   {
     id: "boss_20",
     name: "심연의 마왕",
+    level: 20,
     reqLevel: 20,
     hp: 1360,
     maxHp: 1360,

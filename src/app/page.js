@@ -580,14 +580,24 @@ export default function Home() {
       }
     }
 
-    // Check Enemy Defeat (Updates totalGoldEarned & monstersDefated!)
+    // Check Enemy Defeat (Updates totalGoldEarned & monstersDefeated!)
     if (currentEnemyHp <= 0) {
-      const winText = `🏆 ${battle.target.name}(을)를 물리쳤다! 승리!`;
+      const earnedGold = battle.isBoss ? battle.target.rewardGold : battle.target.goldReward;
+      const rawXp = battle.isBoss ? battle.target.rewardXp : battle.target.xpReward;
+
+      const monsterLevel = battle.target.level || battle.target.reqLevel || 1;
+      const levelDiff = player.level - monsterLevel;
+
+      let earnedXp = rawXp;
+      let penaltyMsg = "";
+      if (levelDiff > 5) {
+        earnedXp = Math.max(1, Math.floor(rawXp * 0.01));
+        penaltyMsg = ` (⚠️ 레벨 차이 ${levelDiff} > 5 초과 패널티: 경험치 0.01배 +${earnedXp}XP 획득)`;
+      }
+
+      const winText = `🏆 ${battle.target.name}(을)를 물리쳤다! 승리!${penaltyMsg}`;
       setBattleText(winText);
       newLogs.unshift(winText);
-
-      const earnedGold = battle.isBoss ? battle.target.rewardGold : battle.target.goldReward;
-      const earnedXp = battle.isBoss ? battle.target.rewardXp : battle.target.xpReward;
 
       const { level: newLevel, xp: newXp, leveledUp } = checkLevelUp(player.xp + earnedXp, player.level);
       const newDefeatedBosses = battle.isBoss && !player.defeatedBossIds.includes(battle.target.id)
@@ -1041,24 +1051,30 @@ export default function Home() {
                       </h4>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {zone.monsters.map((monster) => (
-                          <div key={monster.id} className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="text-2xl">{monster.icon}</span>
-                              <div>
-                                <p className="font-semibold text-slate-200">{monster.name}</p>
-                                <p className="text-[10px] text-slate-400">💰 {monster.goldReward}G / 🌟 {monster.xpReward}XP</p>
+                        {zone.monsters.map((monster) => {
+                          const mLevel = monster.level || monster.reqLevel || 1;
+                          const isXpPenalty = (player.level - mLevel) > 5;
+                          return (
+                            <div key={monster.id} className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-2xl">{monster.icon}</span>
+                                <div>
+                                  <p className="font-semibold text-slate-200">{monster.name} <span className="text-[10px] text-slate-400">Lv.{mLevel}</span></p>
+                                  <p className="text-[10px] text-slate-400">
+                                    💰 {monster.goldReward}G / 🌟 {isXpPenalty ? <span className="text-rose-400 font-bold">0.01배 XP (레벨차 {player.level - mLevel})</span> : `${monster.xpReward}XP`}
+                                  </p>
+                                </div>
                               </div>
+                              <button
+                                disabled={isLocked}
+                                onClick={() => startBattle(monster, false)}
+                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 text-slate-950 font-extrabold text-xs transition"
+                              >
+                                사냥하기
+                              </button>
                             </div>
-                            <button
-                              disabled={isLocked}
-                              onClick={() => startBattle(monster, false)}
-                              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 text-slate-950 font-extrabold text-xs transition"
-                            >
-                              사냥하기
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
