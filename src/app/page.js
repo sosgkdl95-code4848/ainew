@@ -33,10 +33,20 @@ export default function Home() {
   const [saveNotification, setSaveNotification] = useState("");
   const [hitEffect, setHitEffect] = useState(null);
 
-  // Math Quiz Modal State
+  // Math Quiz Modal State for Battle
   const [quizModal, setQuizModal] = useState(null);
 
-  // Inn Rest Challenge State
+  // 🍺 Step-by-Step Decimal Long Division Challenge State for Inn Rest
+  // {
+  //   questions: [{ divisor, dividend, steps: [...] }],
+  //   currentQIndex: 0,
+  //   currentStepIndex: 0,
+  //   userStepInput: "",
+  //   completedSteps: [],
+  //   isComplete: false,
+  //   isSuccess: false,
+  //   feedbackMsg: ""
+  // }
   const [innChallenge, setInnChallenge] = useState(null);
 
   // Stats
@@ -137,7 +147,7 @@ export default function Home() {
     });
   };
 
-  // Generate Math Problem (Level 15+ -> Decimal x Natural Number!)
+  // Generate Math Problem for Battle
   const generateBattleMathProblem = (isBoss, reqLevel = 10) => {
     const isHighLevelPlayer = player.level >= 15;
 
@@ -244,78 +254,183 @@ export default function Home() {
     executeTurn(currentQuiz.actionType, isCorrect, currentQuiz);
   };
 
+  // 🍺 Generate Step-by-Step Long Division Problems by Level
+  const generateInnLongDivisionQuestion = (level) => {
+    let divisor = 4;
+    let quotientStr = "0.18";
+    let dividend = 0.72;
+
+    if (level <= 5) {
+      // Lv 1-5: Easy 1-decimal place division (e.g. 2 ) 0.8 -> 0.4)
+      const options = [
+        { divisor: 2, dividend: 0.8, quotientStr: "0.4", d1: 0, d2: 8, q1: 0, q2: 4, rem1: 8 },
+        { divisor: 3, dividend: 0.9, quotientStr: "0.3", d1: 0, d2: 9, q1: 0, q2: 3, rem1: 9 },
+        { divisor: 4, dividend: 0.8, quotientStr: "0.2", d1: 0, d2: 8, q1: 0, q2: 2, rem1: 8 },
+      ];
+      const selected = options[Math.floor(Math.random() * options.length)];
+      return {
+        divisor: selected.divisor,
+        dividend: selected.dividend,
+        quotientStr: selected.quotientStr,
+        steps: [
+          { stepNum: 1, prompt: `1단계: 일의 자리 ${selected.d1}을 ${selected.divisor}로 나누면 몫의 일의 자리는 얼마일까요?`, targetInput: "0", hint: `${selected.d1} ÷ ${selected.divisor} = 0 입니다!`, label: "일의 자리 몫" },
+          { stepNum: 2, prompt: `2단계: 나누어지는 수의 소수점 위치 그대로 위로 찍어볼까요? (소수점 '.' 입력)`, targetInput: ".", hint: "키보드의 마침표(.)를 입력하세요!", label: "소수점 위치" },
+          { stepNum: 3, prompt: `3단계: 소수 첫째 자리 ${selected.d2}를 ${selected.divisor}로 나누면 몫은 얼마일까요? (${selected.d2} ÷ ${selected.divisor})`, targetInput: String(selected.q2), hint: `${selected.divisor} × ${selected.q2} = ${selected.d2} 입니다!`, label: "소수 첫째 자리 몫" },
+        ],
+      };
+    } else if (level <= 10) {
+      // Lv 6-10: 2-decimal places division (e.g. 4 ) 0.72 -> 0.18, matching image!)
+      const options = [
+        { divisor: 4, dividend: 0.72, quotientStr: "0.18", sub1: 4, rem1: 32, q1: 1, q2: 8 },
+        { divisor: 3, dividend: 0.75, quotientStr: "0.25", sub1: 6, rem1: 15, q1: 2, q2: 5 },
+        { divisor: 5, dividend: 0.85, quotientStr: "0.17", sub1: 5, rem1: 35, q1: 1, q2: 7 },
+      ];
+      const selected = options[Math.floor(Math.random() * options.length)];
+      return {
+        divisor: selected.divisor,
+        dividend: selected.dividend,
+        quotientStr: selected.quotientStr,
+        sub1: selected.sub1,
+        rem1: selected.rem1,
+        steps: [
+          { stepNum: 1, prompt: `1단계: 일의 자리 0을 ${selected.divisor}로 나누면 몫의 일의 자리는?`, targetInput: "0", hint: "0 ÷ 4 = 0 입니다!", label: "일의 자리 몫" },
+          { stepNum: 2, prompt: `2단계: 빨간 화살표처럼 소수점을 그대로 위로 찍어볼까요? ('.' 입력)`, targetInput: ".", hint: "소수점 '.'을 입력하세요!", label: "소수점 찍기" },
+          { stepNum: 3, prompt: `3단계: 소수 첫째 자리 7을 ${selected.divisor}로 나누면 몫은 얼마일까요? (나머지 3)`, targetInput: String(selected.q1), hint: `${selected.divisor} × ${selected.q1} = ${selected.sub1} (7 - ${selected.sub1} = 3)`, label: "소수 첫째 자리 몫" },
+          { stepNum: 4, prompt: `4단계: 나머지 3에 2를 내린 ${selected.rem1}를 ${selected.divisor}로 나누면 몫은 얼마일까요? (${selected.rem1} ÷ ${selected.divisor})`, targetInput: String(selected.q2), hint: `${selected.divisor} × ${selected.q2} = ${selected.rem1} 입니다!`, label: "소수 둘째 자리 몫" },
+        ],
+      };
+    } else if (level <= 15) {
+      // Lv 11-15: 2-decimal places with carrying (e.g. 6 ) 1.44 -> 0.24, 5 ) 3.75 -> 0.75)
+      const options = [
+        { divisor: 6, dividend: 1.44, quotientStr: "0.24", sub1: 12, rem1: 24, q1: 2, q2: 4 },
+        { divisor: 5, dividend: 3.75, quotientStr: "0.75", sub1: 35, rem1: 25, q1: 7, q2: 5 },
+        { divisor: 8, dividend: 1.84, quotientStr: "0.23", sub1: 16, rem1: 24, q1: 2, q2: 3 },
+      ];
+      const selected = options[Math.floor(Math.random() * options.length)];
+      return {
+        divisor: selected.divisor,
+        dividend: selected.dividend,
+        quotientStr: selected.quotientStr,
+        sub1: selected.sub1,
+        rem1: selected.rem1,
+        steps: [
+          { stepNum: 1, prompt: `1단계: 일의 자리 몫은 0! [0]을 입력해보세요.`, targetInput: "0", hint: "1보다 큰 5로 나눌 수 없으므로 0입니다!", label: "일의 자리 몫" },
+          { stepNum: 2, prompt: `2단계: 소수점을 잊지 않고 위에 찍어볼까요? ('.' 입력)`, targetInput: ".", hint: "소수점 '.'을 위치에 맞춰 찍습니다!", label: "소수점 위치" },
+          { stepNum: 3, prompt: `3단계: 14를 ${selected.divisor}로 나눈 몫은 얼마일까요?`, targetInput: String(selected.q1), hint: `${selected.divisor} × ${selected.q1} = ${selected.sub1}`, label: "소수 첫째 자리 몫" },
+          { stepNum: 4, prompt: `4단계: 나머지 ${selected.rem1}를 ${selected.divisor}로 나눈 몫은 얼마일까요?`, targetInput: String(selected.q2), hint: `${selected.divisor} × ${selected.q2} = ${selected.rem1}`, label: "소수 둘째 자리 몫" },
+        ],
+      };
+    } else {
+      // Lv 16-20: Harder 2-decimal places division (e.g. 4 ) 3.12 -> 0.78, 8 ) 3.36 -> 0.42)
+      const options = [
+        { divisor: 4, dividend: 3.12, quotientStr: "0.78", sub1: 28, rem1: 32, q1: 7, q2: 8 },
+        { divisor: 8, dividend: 3.36, quotientStr: "0.42", sub1: 32, rem1: 16, q1: 4, q2: 2 },
+        { divisor: 9, dividend: 4.68, quotientStr: "0.52", sub1: 45, rem1: 18, q1: 5, q2: 2 },
+      ];
+      const selected = options[Math.floor(Math.random() * options.length)];
+      return {
+        divisor: selected.divisor,
+        dividend: selected.dividend,
+        quotientStr: selected.quotientStr,
+        sub1: selected.sub1,
+        rem1: selected.rem1,
+        steps: [
+          { stepNum: 1, prompt: `1단계: 일의 자리 몫 [0]을 입력해보세요!`, targetInput: "0", hint: "0 입니다!", label: "일의 자리 몫" },
+          { stepNum: 2, prompt: `2단계: 소수점 '.'을 올바른 위치에 찍어볼까요?`, targetInput: ".", hint: "소수점 '.'을 입력하세요!", label: "소수점 위치" },
+          { stepNum: 3, prompt: `3단계: 소수 첫째 자리 몫을 구해볼까요?`, targetInput: String(selected.q1), hint: `${selected.divisor} × ${selected.q1} = ${selected.sub1}`, label: "소수 첫째 자리 몫" },
+          { stepNum: 4, prompt: `4단계: 나머지 ${selected.rem1}를 ${selected.divisor}로 나눈 몫은?`, targetInput: String(selected.q2), hint: `${selected.divisor} × ${selected.q2} = ${selected.rem1}`, label: "소수 둘째 자리 몫" },
+        ],
+      };
+    }
+  };
+
   // Open Inn Rest Challenge
+  // - Level <= 10: 1 Question!
+  // - Level > 10: 2 Questions!
   const handleStartInnChallenge = () => {
     if (playerCurrentHp >= stats.maxHp) {
       alert("이미 체력이 가득 차있습니다!");
       return;
     }
 
-    const isHighLevel = player.level >= 15;
-
-    const generatedQuestions = Array.from({ length: 10 }, () => {
-      if (isHighLevel) {
-        const decimalNum = Math.round((Math.floor(Math.random() * 25 + 5) * 0.2) * 10) / 10;
-        const naturalNum = Math.floor(Math.random() * 8) + 2;
-        const answer = Math.round(decimalNum * naturalNum * 100) / 100;
-        return { questionText: `${decimalNum} × ${naturalNum}`, answer };
-      } else {
-        const n1 = Math.floor(Math.random() * 8) + 2;
-        const n2 = Math.floor(Math.random() * 8) + 2;
-        return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
-      }
-    });
+    const totalQCount = player.level <= 10 ? 1 : 2;
+    const questions = Array.from({ length: totalQCount }, () => generateInnLongDivisionQuestion(player.level));
 
     setInnChallenge({
-      questions: generatedQuestions,
-      currentIndex: 0,
-      correctCount: 0,
-      userAnswer: "",
+      questions,
+      currentQIndex: 0,
+      currentStepIndex: 0,
+      userStepInput: "",
+      completedStepInputs: [], // Array of inputs entered for steps in current question
       isComplete: false,
       isSuccess: false,
-      isHighLevel,
+      feedbackMsg: questions[0].steps[0].prompt,
     });
   };
 
-  // Submit Single Question in Inn Challenge
-  const handleInnQuestionSubmit = (e) => {
+  // Submit Step Input in Inn Challenge
+  const handleInnStepSubmit = (e) => {
     e.preventDefault();
     if (!innChallenge || innChallenge.isComplete) return;
 
-    const currentQ = innChallenge.questions[innChallenge.currentIndex];
-    const userVal = parseFloat(innChallenge.userAnswer);
-    const isCorrect = Math.abs(userVal - currentQ.answer) < 0.001;
-    
-    const nextCorrect = isCorrect ? innChallenge.correctCount + 1 : innChallenge.correctCount;
-    const nextIndex = innChallenge.currentIndex + 1;
+    const currentQ = innChallenge.questions[innChallenge.currentQIndex];
+    const currentStep = currentQ.steps[innChallenge.currentStepIndex];
 
-    if (nextIndex >= 10) {
-      const passed = nextCorrect >= 6;
-      setInnChallenge({
-        ...innChallenge,
-        currentIndex: 10,
-        correctCount: nextCorrect,
-        userAnswer: "",
-        isComplete: true,
-        isSuccess: passed,
-      });
+    const inputVal = innChallenge.userStepInput.trim();
+    if (inputVal === currentStep.targetInput) {
+      // CORRECT STEP INPUT!
+      const newCompleted = [...innChallenge.completedStepInputs, inputVal];
+      const nextStepIdx = innChallenge.currentStepIndex + 1;
 
-      if (passed) {
-        const nextPlayer = { ...player, currentHp: stats.maxHp };
-        setPlayer(nextPlayer);
-        handleSave(nextPlayer);
+      if (nextStepIdx >= currentQ.steps.length) {
+        // Question Completed!
+        const nextQIdx = innChallenge.currentQIndex + 1;
+        if (nextQIdx >= innChallenge.questions.length) {
+          // ALL Questions Completed Successfully!
+          setInnChallenge({
+            ...innChallenge,
+            completedStepInputs: newCompleted,
+            isComplete: true,
+            isSuccess: true,
+            feedbackMsg: "🎉 축하합니다! 모든 소수의 나눗셈 단계를 통과하여 체력이 100% 회복되었습니다!",
+          });
+
+          const nextPlayer = { ...player, currentHp: stats.maxHp };
+          setPlayer(nextPlayer);
+          handleSave(nextPlayer);
+        } else {
+          // Advance to Next Question
+          const nextQ = innChallenge.questions[nextQIdx];
+          setInnChallenge({
+            ...innChallenge,
+            currentQIndex: nextQIdx,
+            currentStepIndex: 0,
+            userStepInput: "",
+            completedStepInputs: [],
+            feedbackMsg: `👏 1번 문제 완벽 통과! 2번 문제로 넘어갑니다!\n${nextQ.steps[0].prompt}`,
+          });
+        }
+      } else {
+        // Advance to Next Step in Same Question
+        const nextStep = currentQ.steps[nextStepIdx];
+        setInnChallenge({
+          ...innChallenge,
+          currentStepIndex: nextStepIdx,
+          userStepInput: "",
+          completedStepInputs: newCompleted,
+          feedbackMsg: `✨ 정답입니다! 아주 훌륭해요!\n${nextStep.prompt}`,
+        });
       }
     } else {
+      // WRONG STEP INPUT
       setInnChallenge({
         ...innChallenge,
-        currentIndex: nextIndex,
-        correctCount: nextCorrect,
-        userAnswer: "",
+        feedbackMsg: `❌ 아쉽네요! 힌트: ${currentStep.hint}\n다시 한 번 입력해볼까요? (${currentStep.prompt})`,
       });
     }
   };
 
-  // Turn Action Logic
+  // Turn Action Logic for Battle
   const executeTurn = (actionType, quizSuccess = true, quizData = null) => {
     if (!battle || battle.isOver) return;
 
@@ -418,7 +533,7 @@ export default function Home() {
       setBattle({
         ...battle,
         enemyHp: 0,
-        playerHp: currentPlayerHp,
+        playerHp: finalHp,
         logs: newLogs,
         isOver: true,
         isWin: true,
@@ -471,7 +586,6 @@ export default function Home() {
       newLogs.unshift(`[Turn ${battle.turn}] ${enemyText}`);
 
       if (nextPlayerHp <= 0) {
-        // Player Death Penalty: Lose 20% (0.2x) of current XP & respawn at 50% HP
         const xpPenalty = Math.floor(player.xp * 0.2);
         const remainingXp = Math.max(0, player.xp - xpPenalty);
         const respawnHp = Math.round(stats.maxHp * 0.5);
@@ -555,7 +669,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">사망 페널티: 경험치 20% 차감 적용 완료</p>
+            <p className="text-xs text-slate-400">여관 소수의 나눗셈 단계별 세로셈 학습 연동</p>
           </div>
         </div>
 
@@ -639,9 +753,9 @@ export default function Home() {
               </div>
               <button
                 onClick={handleStartInnChallenge}
-                className="w-full mt-1 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border border-emerald-400/40 text-white text-xs font-extrabold transition shadow flex items-center justify-center gap-1.5 active:scale-95"
+                className="w-full mt-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border border-emerald-400/40 text-white text-xs font-extrabold transition shadow flex items-center justify-center gap-1.5 active:scale-95"
               >
-                🍺 마을 여관 휴식 {player.level >= 15 ? "(소수×자연수 10문제)" : "(구구단 10문제)"}
+                🍺 마을 여관 휴식 {player.level <= 10 ? "(소수 나눗셈 세로셈 1문제)" : "(소수 나눗셈 세로셈 2문제)"}
               </button>
             </div>
 
@@ -894,45 +1008,113 @@ export default function Home() {
         </section>
       </main>
 
-      {/* 🔴 INN REST 10-QUESTION QUIZ CHALLENGE MODAL */}
+      {/* 🔴 INN REST: STEP-BY-STEP DECIMAL LONG DIVISION INTERACTIVE MODAL */}
       {innChallenge && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-4 border-emerald-500 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-4 border-cyan-500 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in select-none">
             
+            {/* Modal Header */}
             <div className="text-center">
-              <div className="inline-block p-3 rounded-full bg-emerald-500/20 text-emerald-400 text-3xl mb-2">
-                🍺
+              <div className="inline-block p-3 rounded-full bg-cyan-500/20 text-cyan-400 text-3xl mb-2">
+                📐
               </div>
-              <h3 className="text-xl font-black text-white">마을 여관 연산 시험</h3>
+              <h3 className="text-xl font-black text-white">마을 여관 소수의 나눗셈 단계별 세로셈</h3>
               <p className="text-xs text-slate-400 mt-1">
-                {innChallenge.isHighLevel ? "📐 [Lv.15+ 전용] 소수 × 자연수 10문제 중 6개 이상 맞추세요!" : "10문제 중 6문제 이상 맞히면 체력이 100% 회복됩니다!"}
+                {player.level <= 10 ? "Lv.1~10: 1문제를 완성하면 체력 100% 회복!" : "Lv.11+: 2문제를 완성하면 체력 100% 회복!"}
               </p>
             </div>
 
             {!innChallenge.isComplete ? (
               <div className="space-y-4">
+                
+                {/* Progress Header */}
                 <div className="flex justify-between items-center text-xs font-bold">
-                  <span className="text-emerald-400">문제 {innChallenge.currentIndex + 1} / 10</span>
-                  <span className="text-amber-400">현재 맞힌 개수: {innChallenge.correctCount}개 (목표: 6개+)</span>
-                </div>
-                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${((innChallenge.currentIndex) / 10) * 100}%` }}></div>
-                </div>
-
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-4xl font-black text-emerald-400 text-center tracking-wider font-mono shadow-inner">
-                  {innChallenge.questions[innChallenge.currentIndex].questionText} = ?
+                  <span className="text-cyan-400">문제 {innChallenge.currentQIndex + 1} / {innChallenge.questions.length}</span>
+                  <span className="text-amber-400">
+                    현재 단계: {innChallenge.currentStepIndex + 1} / {innChallenge.questions[innChallenge.currentQIndex].steps.length} 단계
+                  </span>
                 </div>
 
-                <form onSubmit={handleInnQuestionSubmit} className="space-y-3">
-                  <input
-                    type="number"
-                    step="any"
-                    autoFocus
-                    placeholder="정답 입력 (소수/자연수)"
-                    value={innChallenge.userAnswer}
-                    onChange={(e) => setInnChallenge({ ...innChallenge, userAnswer: e.target.value })}
-                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-500 rounded-xl py-3 px-4 text-center font-bold text-2xl text-white outline-none"
-                  />
+                {/* VISUAL LONG DIVISION BOARD (MATCHING USER IMAGE STYLE) */}
+                <div className="bg-slate-950 p-6 rounded-2xl border-2 border-slate-800 font-mono text-slate-100 space-y-4 shadow-inner">
+                  
+                  {/* Step-by-step long division visual display */}
+                  <div className="flex flex-col items-center justify-center">
+                    
+                    {/* Quotient line & Inputs */}
+                    <div className="flex items-center gap-1 text-2xl font-black tracking-widest text-cyan-400 border-b-4 border-slate-400 pb-1 px-4">
+                      <span className="text-slate-500 text-sm mr-6">몫 ➔</span>
+                      {innChallenge.questions[innChallenge.currentQIndex].steps.map((step, idx) => {
+                        const isCompleted = idx < innChallenge.currentStepIndex;
+                        const isCurrent = idx === innChallenge.currentStepIndex;
+
+                        if (step.targetInput === ".") {
+                          return (
+                            <span key={idx} className="relative text-rose-400 font-black px-1 text-3xl">
+                              .
+                              <span className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-rose-500 text-xs animate-bounce">↑</span>
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`w-9 h-11 flex items-center justify-center rounded-lg border-2 font-bold text-xl transition-all ${
+                              isCompleted
+                                ? "bg-slate-800 border-slate-600 text-slate-300"
+                                : isCurrent
+                                ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 animate-pulse ring-4 ring-cyan-500/30"
+                                : "bg-slate-900 border-slate-800 text-slate-700"
+                            }`}
+                          >
+                            {isCompleted ? innChallenge.completedStepInputs[idx] : isCurrent ? "?" : ""}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Dividend line: divisor ) dividend */}
+                    <div className="flex items-center gap-3 text-3xl font-black tracking-widest mt-2">
+                      <span className="text-amber-400 font-bold text-2xl">
+                        {innChallenge.questions[innChallenge.currentQIndex].divisor}
+                      </span>
+                      <span className="text-slate-500 text-2xl">)</span>
+                      <span className="text-white tracking-widest font-mono">
+                        {innChallenge.questions[innChallenge.currentQIndex].dividend}
+                      </span>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* FRIENDLY INSTRUCTION BANNER (파란색 채워넣기 친절한 멘트!) */}
+                <div className="bg-cyan-950/60 border-2 border-cyan-500/40 p-4 rounded-2xl space-y-1">
+                  <p className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                    💬 선생님의 친절한 단계별 가이드:
+                  </p>
+                  <p className="text-sm font-extrabold text-white leading-relaxed whitespace-pre-line">
+                    {innChallenge.feedbackMsg}
+                  </p>
+                </div>
+
+                {/* BLUE INPUT FORM (파란색 채워넣기 입력창) */}
+                <form onSubmit={handleInnStepSubmit} className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-cyan-400">
+                      파란색 박스에 들어갈 숫자를 입력하세요:
+                    </label>
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder={innChallenge.questions[innChallenge.currentQIndex].steps[innChallenge.currentStepIndex].targetInput === "." ? "소수점 '.' 입력" : "숫자 입력"}
+                      value={innChallenge.userStepInput}
+                      onChange={(e) => setInnChallenge({ ...innChallenge, userStepInput: e.target.value })}
+                      className="w-full bg-slate-950 border-4 border-cyan-500 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/40 rounded-2xl py-3.5 px-4 text-center font-black text-3xl text-cyan-300 outline-none transition shadow-lg font-mono"
+                    />
+                  </div>
+
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -943,44 +1125,31 @@ export default function Home() {
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition shadow-lg"
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-1"
                     >
-                      제출 (Next ➔)
+                      정답 확인 (Next ➔)
                     </button>
                   </div>
                 </form>
+
               </div>
             ) : (
-              <div className="text-center space-y-4 py-2">
-                {innChallenge.isSuccess ? (
-                  <div className="space-y-3">
-                    <div className="text-5xl">🎉</div>
-                    <h4 className="text-2xl font-black text-emerald-400">여관 휴식 성공!</h4>
-                    <p className="text-sm text-slate-200">
-                      10문제 중 <span className="font-bold text-amber-400">{innChallenge.correctCount}개</span>를 맞히셨습니다!
-                    </p>
-                    <p className="text-xs text-emerald-300 font-bold bg-emerald-500/20 py-2 rounded-xl border border-emerald-500/30">
-                      💖 체력이 100% 회복되었습니다!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="text-5xl">❌</div>
-                    <h4 className="text-2xl font-black text-rose-400">여관 휴식 실패...</h4>
-                    <p className="text-sm text-slate-200">
-                      10문제 중 <span className="font-bold text-rose-400">{innChallenge.correctCount}개</span>만 맞혔습니다.
-                    </p>
-                    <p className="text-xs text-rose-300 font-semibold bg-rose-500/20 py-2 rounded-xl border border-rose-500/30">
-                      (6개 이상 맞혀야 휴식이 가능합니다.)
-                    </p>
-                  </div>
-                )}
+              /* Success Screen */
+              <div className="text-center space-y-4 py-3">
+                <div className="text-6xl">🎉</div>
+                <h4 className="text-2xl font-black text-cyan-400">여관 휴식 성공!</h4>
+                <p className="text-sm text-slate-200">
+                  소수의 나눗셈 세로셈 단계를 완벽히 통과하셨습니다!
+                </p>
+                <p className="text-xs text-emerald-300 font-bold bg-emerald-500/20 py-2.5 px-4 rounded-xl border border-emerald-500/30">
+                  💖 체력이 100% (풀피)로 완전 회복되었습니다!
+                </p>
 
                 <button
                   onClick={() => setInnChallenge(null)}
-                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition mt-2"
+                  className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition mt-2"
                 >
-                  확인 (마을로)
+                  확인 (마을로 돌아가기)
                 </button>
               </div>
             )}
