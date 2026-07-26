@@ -54,7 +54,7 @@ export default function Home() {
         const savedData = await loadGameData(currentUser.uid);
         if (savedData) {
           setPlayer(savedData);
-          // ⚔️ Restoring active ongoing battle if user left mid-battle!
+          // Restoring active ongoing battle if user left mid-battle!
           if (savedData.activeBattle && !savedData.activeBattle.isOver) {
             setBattle(savedData.activeBattle);
             setBattleText(savedData.activeBattle.logs?.[0] || `${savedData.activeBattle.target?.name}(와)의 전투가 재개되었습니다!`);
@@ -272,7 +272,7 @@ export default function Home() {
     });
   };
 
-  // Submit Battle Math Quiz
+  // Submit Battle Math Quiz (Increments solvedMathCount on correct answer!)
   const handleQuizSubmit = (e) => {
     e.preventDefault();
     if (!quizModal) return;
@@ -281,6 +281,14 @@ export default function Home() {
     const isCorrect = Math.abs(userVal - quizModal.answer) < 0.001;
     const currentQuiz = quizModal;
     setQuizModal(null);
+
+    if (isCorrect) {
+      const updatedPlayer = {
+        ...player,
+        solvedMathCount: (player.solvedMathCount || 0) + 1,
+      };
+      setPlayer(updatedPlayer);
+    }
 
     executeTurn(currentQuiz.actionType, isCorrect, currentQuiz);
   };
@@ -389,7 +397,7 @@ export default function Home() {
     });
   };
 
-  // Submit Step Input in Inn Challenge
+  // Submit Step Input in Inn Challenge (Increments solvedMathCount!)
   const handleInnStepSubmit = (e) => {
     e.preventDefault();
     if (!innChallenge || innChallenge.isComplete) return;
@@ -402,6 +410,9 @@ export default function Home() {
       const newCompleted = [...innChallenge.completedStepInputs, inputVal];
       const nextStepIdx = innChallenge.currentStepIndex + 1;
 
+      // Increment solved Math count for correct step!
+      const updatedMathCount = (player.solvedMathCount || 0) + 1;
+
       if (nextStepIdx >= currentQ.steps.length) {
         const nextQIdx = innChallenge.currentQIndex + 1;
         if (nextQIdx >= innChallenge.questions.length) {
@@ -413,11 +424,14 @@ export default function Home() {
             feedbackMsg: "🎉 축하합니다! 모든 소수의 나눗셈 단계를 통과하여 체력이 100% 회복되었습니다!",
           });
 
-          const nextPlayer = { ...player, currentHp: stats.maxHp };
+          const nextPlayer = { ...player, currentHp: stats.maxHp, solvedMathCount: updatedMathCount };
           setPlayer(nextPlayer);
           handleSave(nextPlayer);
         } else {
           const nextQ = innChallenge.questions[nextQIdx];
+          const nextPlayer = { ...player, solvedMathCount: updatedMathCount };
+          setPlayer(nextPlayer);
+
           setInnChallenge({
             ...innChallenge,
             currentQIndex: nextQIdx,
@@ -429,6 +443,9 @@ export default function Home() {
         }
       } else {
         const nextStep = currentQ.steps[nextStepIdx];
+        const nextPlayer = { ...player, solvedMathCount: updatedMathCount };
+        setPlayer(nextPlayer);
+
         setInnChallenge({
           ...innChallenge,
           currentStepIndex: nextStepIdx,
@@ -445,7 +462,7 @@ export default function Home() {
     }
   };
 
-  // Turn Action Logic for Battle (With Active Battle State Persistence)
+  // Turn Action Logic for Battle (With Active Battle State Persistence & Gold/Math Tracking)
   const executeTurn = (actionType, quizSuccess = true, quizData = null) => {
     if (!battle || battle.isOver) return;
 
@@ -563,7 +580,7 @@ export default function Home() {
       }
     }
 
-    // Check Enemy Defeat
+    // Check Enemy Defeat (Updates totalGoldEarned & monstersDefated!)
     if (currentEnemyHp <= 0) {
       const winText = `🏆 ${battle.target.name}(을)를 물리쳤다! 승리!`;
       setBattleText(winText);
@@ -592,11 +609,13 @@ export default function Home() {
       const nextPlayerState = {
         ...player,
         gold: player.gold + earnedGold,
+        totalGoldEarned: (player.totalGoldEarned || player.gold) + earnedGold,
+        monstersDefeated: (player.monstersDefeated || 0) + 1,
         xp: newXp,
         level: newLevel,
         currentHp: finalHp,
         defeatedBossIds: newDefeatedBosses,
-        activeBattle: null, // Clear active battle on victory
+        activeBattle: null,
       };
 
       setPlayer(nextPlayerState);
@@ -605,7 +624,7 @@ export default function Home() {
       return;
     }
 
-    // 2. ENEMY COUNTER ATTACK (Update & Persist Active Battle State)
+    // 2. ENEMY COUNTER ATTACK
     setTimeout(() => {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
@@ -692,7 +711,7 @@ export default function Home() {
         const nextPlayerState = {
           ...player,
           currentHp: nextPlayerHp,
-          activeBattle: updatedBattle, // ⚔️ PERSISTS EXACT BATTLE STATE TO FIRESTORE!
+          activeBattle: updatedBattle,
         };
 
         setPlayer(nextPlayerState);
@@ -731,6 +750,15 @@ export default function Home() {
     if (pct > 50) return "bg-emerald-500";
     if (pct > 20) return "bg-amber-400";
     return "bg-rose-600 animate-pulse";
+  };
+
+  // Math Title helper based on solvedMathCount
+  const getMathTitle = (count = 0) => {
+    if (count >= 50) return { title: "👑 전설의 수학 마스터", color: "text-amber-300 bg-amber-500/20 border-amber-500/40" };
+    if (count >= 30) return { title: "✨ 셈법의 대마법사", color: "text-purple-300 bg-purple-500/20 border-purple-500/40" };
+    if (count >= 15) return { title: "⚔️ 수학의 수호 기사", color: "text-blue-300 bg-blue-500/20 border-blue-500/40" };
+    if (count >= 5) return { title: "📐 소수 연산 탐험가", color: "text-emerald-300 bg-emerald-500/20 border-emerald-500/40" };
+    return { title: "🌱 신입 수학 모험가", color: "text-slate-300 bg-slate-800 border-slate-700" };
   };
 
   // 1. INITIAL LOADING SCREEN
@@ -779,7 +807,7 @@ export default function Home() {
               <span>📐</span> <span><strong>소수 나눗셈 세로셈</strong>: 여관 단계별 학습 체력 회복</span>
             </div>
             <div className="flex items-center gap-2 text-slate-200">
-              <span>🎲</span> <span><strong>무작위 연산 사냥터</strong>: 초등 수학 전 범위 퀴즈 출제</span>
+              <span>🏆</span> <span><strong>명예의 전당</strong>: 누적 골드 & 수학 해결 문제 기록</span>
             </div>
           </div>
 
@@ -814,6 +842,8 @@ export default function Home() {
     );
   }
 
+  const titleBadge = getMathTitle(player.solvedMathCount || 0);
+
   // 3. MAIN GAME SCREEN
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
@@ -825,7 +855,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">⚔️ 전투 중 이탈 시 실시간 장면 복원 시스템 연동</p>
+            <p className="text-xs text-slate-400">🏆 명예의 전당 (누적 골드 & 수학 해결 문제 기록)</p>
           </div>
         </div>
 
@@ -858,7 +888,9 @@ export default function Home() {
             
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
-                <span className="text-xs font-bold text-amber-400 tracking-wider uppercase">CHARACTER</span>
+                <span className={`inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border mb-1.5 ${titleBadge.color}`}>
+                  {titleBadge.title}
+                </span>
                 <h2 className="text-2xl font-black text-white">Lv. {stats.level} 모험가</h2>
               </div>
               <div className="text-right">
@@ -950,10 +982,11 @@ export default function Home() {
         {/* Right Area */}
         <section className="lg:col-span-2 space-y-4">
           
+          {/* Main Navigation Tabs */}
           <div className="flex bg-slate-900 border border-slate-800 p-1.5 rounded-2xl gap-1">
             <button
               onClick={() => setActiveTab("hunt")}
-              className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1 ${
                 activeTab === "hunt" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
@@ -961,19 +994,27 @@ export default function Home() {
             </button>
             <button
               onClick={() => setActiveTab("shop")}
-              className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1 ${
                 activeTab === "shop" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
-              <span>🛒</span> 상점 & 장비
+              <span>🛒</span> 상점
             </button>
             <button
               onClick={() => setActiveTab("boss")}
-              className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1 ${
                 activeTab === "boss" ? "bg-rose-600 text-white shadow-md animate-pulse" : "text-rose-400 hover:text-rose-300 hover:bg-slate-800/50"
               }`}
             >
               <span>👑</span> 보스 레이드
+            </button>
+            <button
+              onClick={() => setActiveTab("hallOfFame")}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1 ${
+                activeTab === "hallOfFame" ? "bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black shadow-md" : "text-amber-400 hover:text-amber-300 hover:bg-slate-800/50"
+              }`}
+            >
+              <span>🏆</span> 명예의 전당
             </button>
           </div>
 
@@ -1136,6 +1177,134 @@ export default function Home() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* TAB 4: HALL OF FAME (🏆 명예의 전당) */}
+          {activeTab === "hallOfFame" && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-6">
+              
+              {/* Header */}
+              <div className="border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl">🏆</span>
+                  <div>
+                    <h3 className="font-black text-2xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                      전설의 모험가 명예의 전당
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      수학 문제를 해결하고 골드를 모아 전설의 칭호를 획득하세요!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Personal Hall of Fame Stats */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider">나의 누적 수호 기록</h4>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-4 space-y-1">
+                    <span className="text-2xl">📐</span>
+                    <span className="text-[11px] text-slate-400 block font-semibold">해결한 수학 문제</span>
+                    <p className="text-lg font-black text-amber-300">
+                      {(player.solvedMathCount || 0).toLocaleString()} 개
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-4 space-y-1">
+                    <span className="text-2xl">💰</span>
+                    <span className="text-[11px] text-slate-400 block font-semibold">누적 획득 골드</span>
+                    <p className="text-lg font-black text-amber-400">
+                      {(player.totalGoldEarned || player.gold || 0).toLocaleString()} G
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-4 space-y-1">
+                    <span className="text-2xl">⚔️</span>
+                    <span className="text-[11px] text-slate-400 block font-semibold">토벌한 몬스터</span>
+                    <p className="text-lg font-black text-rose-400">
+                      {(player.monstersDefeated || 0).toLocaleString()} 마리
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-4 space-y-1">
+                    <span className="text-2xl">👑</span>
+                    <span className="text-[11px] text-slate-400 block font-semibold">격퇴한 보스</span>
+                    <p className="text-lg font-black text-purple-300">
+                      {player.defeatedBossIds?.length || 0} / 3 마리
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Title Badge Card */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-yellow-950/40 border-2 border-amber-500/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-center sm:text-left">
+                  <span className="text-5xl">🎖️</span>
+                  <div>
+                    <span className="text-xs text-amber-400 font-bold uppercase tracking-wider">현재 모험가 칭호</span>
+                    <h4 className="text-xl font-black text-white mt-0.5">{titleBadge.title}</h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      다음 칭호 달성까지 수학 문제 <strong className="text-amber-300">{Math.max(0, (player.solvedMathCount < 5 ? 5 : player.solvedMathCount < 15 ? 15 : player.solvedMathCount < 30 ? 30 : 50) - (player.solvedMathCount || 0))}개</strong> 남음!
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-slate-400">전국 수학 등급</span>
+                  <p className="text-lg font-black text-amber-400">Top 1% 마스터</p>
+                </div>
+              </div>
+
+              {/* Leaderboard Showcase */}
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">전국 영웅 명예의 전당 랭킹</h4>
+
+                <div className="space-y-2">
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/40 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🥇</span>
+                      <div>
+                        <p className="font-extrabold text-amber-300 text-sm">{user.displayName || "수학 챔피언"} <span className="text-xs text-slate-400 font-normal">(나)</span></p>
+                        <p className="text-[11px] text-slate-400">Lv.{player.level} • {titleBadge.title}</p>
+                      </div>
+                    </div>
+                    <div className="text-right font-mono">
+                      <p className="font-black text-amber-400">{(player.solvedMathCount || 0)}문제 해결</p>
+                      <p className="text-[10px] text-slate-400">💰 {(player.totalGoldEarned || player.gold || 0).toLocaleString()}G</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🥈</span>
+                      <div>
+                        <p className="font-bold text-slate-200 text-sm">전설의 길가메시</p>
+                        <p className="text-[11px] text-slate-400">Lv.19 • ✨ 셈법의 대마법사</p>
+                      </div>
+                    </div>
+                    <div className="text-right font-mono">
+                      <p className="font-bold text-slate-300">48문제 해결</p>
+                      <p className="text-[10px] text-slate-400">💰 42,500G</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🥉</span>
+                      <div>
+                        <p className="font-bold text-slate-200 text-sm">알렉산더 대왕</p>
+                        <p className="text-[11px] text-slate-400">Lv.17 • ⚔️ 수학의 수호 기사</p>
+                      </div>
+                    </div>
+                    <div className="text-right font-mono">
+                      <p className="font-bold text-slate-300">32문제 해결</p>
+                      <p className="text-[10px] text-slate-400">💰 28,900G</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 
