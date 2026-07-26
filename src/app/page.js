@@ -24,20 +24,23 @@ export default function Home() {
 
   // Game state
   const [player, setPlayer] = useState(createInitialPlayerState());
-  const [activeTab, setActiveTab] = useState("hunt"); // hunt | shop | boss
-  const [shopCategory, setShopCategory] = useState("weapons"); // weapons | armors | items
+  const [activeTab, setActiveTab] = useState("hunt");
+  const [shopCategory, setShopCategory] = useState("weapons");
 
-  // Battle state (Pokemon style)
-  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, isDefending: false, isHit: false }
+  // Battle state
+  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0 }
   const [battle, setBattle] = useState(null);
   const [battleText, setBattleText] = useState("");
   const [saveNotification, setSaveNotification] = useState("");
-  const [hitEffect, setHitEffect] = useState(null); // 'player' | 'enemy' | null
+  const [hitEffect, setHitEffect] = useState(null);
 
-  // Calculate current stats
+  // Multiplication Quiz State
+  const [quizModal, setQuizModal] = useState(null); // { num1, num2, answer, userAnswer: "" }
+
+  // Stats
   const stats = calculatePlayerStats(player);
 
-  // Auth Listener & Load Data
+  // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -52,7 +55,7 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  // Save game to Firestore
+  // Save game
   const handleSave = async (updatedPlayer = player) => {
     if (user) {
       await saveGameData(user.uid, updatedPlayer);
@@ -82,7 +85,6 @@ export default function Home() {
     return { level: newLevel, xp: newXp };
   };
 
-  // Google Login
   const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -91,7 +93,6 @@ export default function Home() {
     }
   };
 
-  // Anonymous Login
   const handleAnonymousLogin = async () => {
     try {
       await signInAnonymously(auth);
@@ -100,7 +101,7 @@ export default function Home() {
     }
   };
 
-  // Start Battle (Pokemon Style Arena)
+  // Start Battle
   const startBattle = (target, isBoss) => {
     if (isBoss && player.level < target.reqLevel) {
       alert(`🔒 ${target.name} 보스는 레벨 ${target.reqLevel} 이상부터 도전 가능합니다!`);
@@ -120,38 +121,79 @@ export default function Home() {
       isOver: false,
       isWin: false,
       turn: 1,
-      isDefending: false,
+      skillCooldown: 0, // 0 means ready
     });
   };
 
-  // Execute Action: Attack / Skill / Defend / Item
-  const handleAction = (actionType) => {
+  // Open Skill Quiz (구구단 모달)
+  const handleOpenSkillQuiz = () => {
+    if (!battle || battle.isOver) return;
+    if (battle.skillCooldown > 0) {
+      alert(`⏳ 스킬 쿨타임 중입니다! (${battle.skillCooldown}턴 남음)`);
+      return;
+    }
+
+    const n1 = Math.floor(Math.random() * 8) + 2; // 2 ~ 9
+    const n2 = Math.floor(Math.random() * 8) + 2; // 2 ~ 9
+    setQuizModal({
+      num1: n1,
+      num2: n2,
+      answer: n1 * n2,
+      userAnswer: "",
+    });
+  };
+
+  // Submit Multiplication Answer
+  const handleQuizSubmit = (e) => {
+    e.preventDefault();
+    if (!quizModal) return;
+
+    const isCorrect = parseInt(quizModal.userAnswer, 10) === quizModal.answer;
+    const currentQuiz = quizModal;
+    setQuizModal(null); // Close quiz modal
+
+    // Execute skill turn
+    executeTurn("skill", isCorrect, currentQuiz);
+  };
+
+  // Turn Action Logic
+  const executeTurn = (actionType, quizSuccess = true, quizData = null) => {
     if (!battle || battle.isOver) return;
 
     let newLogs = [...battle.logs];
     let isDefending = false;
     let playerDamage = 0;
     let currentEnemyHp = battle.enemyHp;
+    let nextCooldown = Math.max(0, battle.skillCooldown - 1);
 
-    // Trigger visual hit effect on enemy
-    if (actionType === "attack" || actionType === "skill") {
+    // 1. PLAYER ACTION
+    if (actionType === "attack") {
       setHitEffect("enemy");
       setTimeout(() => setHitEffect(null), 500);
-    }
 
-    // 1. PLAYER TURN
-    if (actionType === "attack") {
       playerDamage = calculateDamage(stats.totalAtk, battle.target.def);
       currentEnemyHp = Math.max(0, battle.enemyHp - playerDamage);
       const text = `🗡️ 모험가의 일반 공격! ${battle.target.name}에게 ${playerDamage} 데미지!`;
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
     } else if (actionType === "skill") {
-      playerDamage = Math.round(calculateDamage(stats.totalAtk, battle.target.def) * 1.4);
-      currentEnemyHp = Math.max(0, battle.enemyHp - playerDamage);
-      const text = `💥 모험가의 필살 스킬! ${battle.target.name}에게 ${playerDamage} 데미지!`;
-      setBattleText(text);
-      newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+      if (quizSuccess) {
+        setHitEffect("enemy");
+        setTimeout(() => setHitEffect(null), 500);
+
+        playerDamage = Math.round(calculateDamage(stats.totalAtk, battle.target.def) * 1.5); // 1.5x damage!
+        currentEnemyHp = Math.max(0, battle.enemyHp - playerDamage);
+        nextCooldown = 2; // 2 turns cooldown
+
+        const text = `🎉 [구구단 정답! ${quizData.num1}×${quizData.num2}=${quizData.answer}] ✨ 1.5배 강력한 필살 스킬 발동! ${battle.target.name}에게 ${playerDamage} 데미지!`;
+        setBattleText(text);
+        newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+      } else {
+        const text = `❌ [구구단 오답! 입력: ${quizData.userAnswer || "없음"}] 스킬 실패! 턴을 허비하고 몬스터에게 턴이 넘어갑니다.`;
+        setBattleText(text);
+        newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+        nextCooldown = 0; // Cooldown not consumed on fail
+      }
     } else if (actionType === "defend") {
       isDefending = true;
       const text = `🛡️ 모험가는 방어 자세를 취했다! (이번 턴 받은 피해 50% 감소)`;
@@ -205,24 +247,24 @@ export default function Home() {
       return;
     }
 
-    // 2. ENEMY COUNTER TURN (after 600ms delay for turn pacing)
+    // 2. ENEMY COUNTER ATTACK (Monster ALWAYS attacks on its turn)
     setTimeout(() => {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
 
       let rawEnemyDamage = calculateDamage(battle.target.atk, stats.totalDef);
       if (isDefending) {
-        rawEnemyDamage = Math.max(1, Math.round(rawEnemyDamage * 0.5)); // 50% damage reduction
+        rawEnemyDamage = Math.max(1, Math.round(rawEnemyDamage * 0.5)); // 50% reduction
       }
 
       const nextPlayerHp = Math.max(0, battle.playerHp - rawEnemyDamage);
-      const enemyText = `💥 ${battle.target.name}의 공격! 모험가에게 ${rawEnemyDamage} 데미지! ${isDefending ? "(방어 성공!)" : ""}`;
+      const enemyText = `💥 ${battle.target.name}의 반격! 모험가에게 ${rawEnemyDamage} 데미지! ${isDefending ? "(방어 성공: 데미지 50% 감소)" : ""}`;
       
       setBattleText(enemyText);
       newLogs.unshift(`[Turn ${battle.turn}] ${enemyText}`);
 
       if (nextPlayerHp <= 0) {
-        const loseText = `💀 모험가의 쓰러짐... 전투에서 패배했습니다.`;
+        const loseText = `💀 모험가가 쓰러졌습니다... 전투에서 패배했습니다.`;
         setBattleText(loseText);
         newLogs.unshift(loseText);
 
@@ -241,13 +283,13 @@ export default function Home() {
           playerHp: nextPlayerHp,
           logs: newLogs,
           turn: battle.turn + 1,
-          isDefending: false,
+          skillCooldown: nextCooldown,
         });
       }
     }, 600);
   };
 
-  // Buy Equipment / Potion Helpers
+  // Buy Helpers
   const handleBuyWeapon = (item) => {
     if (player.gold < item.price) return alert("골드가 부족합니다!");
     if (player.ownedWeaponIds.includes(item.id)) return;
@@ -271,7 +313,6 @@ export default function Home() {
     handleSave(next);
   };
 
-  // HP Bar Color Helper (Pokemon style: Green > 50%, Yellow > 20%, Red < 20%)
   const getHpBarColor = (current, max) => {
     const pct = (current / max) * 100;
     if (pct > 50) return "bg-emerald-500";
@@ -281,7 +322,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
-      {/* Top Navigation / Auth Bar */}
+      {/* Top Header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🎮</span>
@@ -289,11 +330,11 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">턴제 사냥 & 보스 토벌 아레나</p>
+            <p className="text-xs text-slate-400">턴제 사냥 & 구구단 스킬 시스템</p>
           </div>
         </div>
 
-        {/* Auth status & Save */}
+        {/* Auth & Save */}
         <div className="flex items-center gap-3">
           {authLoading ? (
             <span className="text-xs text-slate-400">인증 확인 중...</span>
@@ -326,17 +367,17 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Notification banner */}
+      {/* Save Notification */}
       {saveNotification && (
         <div className="bg-amber-500/20 border-b border-amber-500/40 text-amber-300 text-xs text-center py-2 font-medium">
           {saveNotification}
         </div>
       )}
 
-      {/* Main Container */}
+      {/* Main Layout */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left HUD: Character Info */}
+        {/* Left HUD */}
         <section className="lg:col-span-1 space-y-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
             
@@ -378,7 +419,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Equipped Items */}
+            {/* Equipment */}
             <div className="space-y-3 pt-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">장착 중인 장비</h3>
               <div className="space-y-2">
@@ -406,7 +447,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Consumables */}
+            {/* Potion */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🧪</span>
@@ -418,7 +459,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Right Area: Action Tabs */}
+        {/* Right Area */}
         <section className="lg:col-span-2 space-y-4">
           
           <div className="flex bg-slate-900 border border-slate-800 p-1.5 rounded-2xl gap-1">
@@ -428,7 +469,7 @@ export default function Home() {
                 activeTab === "hunt" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
-              <span>⚔️</span> 사냥터 (파밍)
+              <span>⚔️</span> 사냥터 (7타/10타)
             </button>
             <button
               onClick={() => setActiveTab("shop")}
@@ -448,11 +489,11 @@ export default function Home() {
             </button>
           </div>
 
-          {/* TAB 1: HUNTING */}
+          {/* TAB 1: HUNT */}
           {activeTab === "hunt" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-              <h3 className="font-bold text-lg text-white">🌲 사냥터 입장</h3>
-              <p className="text-xs text-slate-400">몬스터를 선택하여 포켓몬 스타일 턴제 전투에 돌입하세요.</p>
+              <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
+              <p className="text-xs text-slate-400">7타 공격에 몬스터 처치 / 몬스터 공격 10타에 모험가 사망 밸런스</p>
 
               <div className="space-y-4">
                 {HUNTING_GROUNDS.map((zone) => {
@@ -483,7 +524,7 @@ export default function Home() {
                               onClick={() => startBattle(monster, false)}
                               className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 text-slate-950 font-extrabold text-xs transition"
                             >
-                              전투 시작
+                              사냥하기
                             </button>
                           </div>
                         ))}
@@ -574,11 +615,11 @@ export default function Home() {
             </div>
           )}
 
-          {/* TAB 3: BOSS RAID */}
+          {/* TAB 3: BOSS */}
           {activeTab === "boss" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전</h3>
-              <p className="text-xs text-slate-400">레벨 10, 15, 20에 도전하는 보스 전투 (7회+ 공격 / 4회 피격 밸런스 설계)</p>
+              <p className="text-xs text-slate-400">레벨 10, 15, 20에 도전하는 보스 레이드 (7타 공격 / 4타 피격 밸런스)</p>
 
               <div className="space-y-4">
                 {BOSSES.map((boss) => {
@@ -606,15 +647,62 @@ export default function Home() {
         </section>
       </main>
 
-      {/* 🔴 RETRO POKÉMON STYLE BATTLE SCREEN (OVERLAY MODAL) */}
+      {/* 🔴 MULTIPLICATION QUIZ MODAL FOR SKILL */}
+      {quizModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-4 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in fade-in">
+            <div className="inline-block p-3 rounded-full bg-amber-500/20 text-amber-400 text-3xl mb-1">
+              ✨
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-white">필살기 발동! 구구단 퀴즈</h3>
+              <p className="text-xs text-slate-400 mt-1">정답을 맞히면 1.5배 강력한 스킬이 발동합니다!</p>
+            </div>
+
+            {/* Math Question */}
+            <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 text-3xl font-black text-amber-400 tracking-wider font-mono">
+              {quizModal.num1} × {quizModal.num2} = ?
+            </div>
+
+            {/* Answer Input */}
+            <form onSubmit={handleQuizSubmit} className="space-y-3">
+              <input
+                type="number"
+                autoFocus
+                placeholder="정답 입력"
+                value={quizModal.userAnswer}
+                onChange={(e) => setQuizModal({ ...quizModal, userAnswer: e.target.value })}
+                className="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-xl py-3 px-4 text-center font-bold text-xl text-white outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuizModal(null)}
+                  className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700 transition"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg"
+                >
+                  스킬 시전!
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🔴 RETRO POKÉMON BATTLE SCREEN MODAL */}
       {battle && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none">
+        <div className="fixed inset-0 z-40 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none">
           <div className="w-full max-w-2xl bg-amber-950/90 border-4 border-amber-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col font-mono border-double">
             
-            {/* 1. BATTLE TOP SCENE (포켓몬 전투 필드) */}
+            {/* 1. TOP BATTLE SCENE */}
             <div className="relative bg-gradient-to-b from-amber-200 via-amber-100 to-amber-300 p-6 min-h-[300px] flex flex-col justify-between overflow-hidden shadow-inner">
               
-              {/* ENEMY STATUS BADGE (TOP LEFT) */}
+              {/* ENEMY STATUS BADGE */}
               <div className={`self-start bg-slate-100 border-4 border-slate-800 rounded-2xl px-4 py-2 shadow-xl min-w-[220px] transition-transform ${hitEffect === 'enemy' ? 'animate-bounce' : ''}`}>
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-black text-xs text-slate-900 tracking-wider flex items-center gap-1">
@@ -622,7 +710,6 @@ export default function Home() {
                   </span>
                   <span className="text-[11px] font-bold text-slate-600">Lv.{battle.target.reqLevel || 1}</span>
                 </div>
-                {/* HP BAR */}
                 <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-900">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${getHpBarColor(battle.enemyHp, battle.maxEnemyHp)}`}
@@ -631,7 +718,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* ENEMY SPRITE PLATFORM (TOP RIGHT) */}
+              {/* ENEMY SPRITE */}
               <div className={`absolute top-10 right-10 flex flex-col items-center transition-all ${hitEffect === 'enemy' ? 'animate-ping' : ''}`}>
                 <div className="w-36 h-12 bg-amber-400/40 rounded-[100%] border-2 border-amber-500/50 transform rotate-12 -mb-6 shadow-md"></div>
                 <div className="text-6xl sm:text-7xl filter drop-shadow-2xl animate-pulse">
@@ -639,7 +726,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* PLAYER SPRITE PLATFORM (BOTTOM LEFT) */}
+              {/* PLAYER SPRITE */}
               <div className={`absolute bottom-6 left-10 flex flex-col items-center transition-all ${hitEffect === 'player' ? 'animate-ping' : ''}`}>
                 <div className="text-6xl sm:text-7xl filter drop-shadow-2xl transform -scale-x-100">
                   🧙‍♂️
@@ -647,7 +734,7 @@ export default function Home() {
                 <div className="w-36 h-12 bg-amber-400/40 rounded-[100%] border-2 border-amber-500/50 transform -rotate-12 -mt-4 shadow-md"></div>
               </div>
 
-              {/* PLAYER STATUS BADGE (BOTTOM RIGHT) */}
+              {/* PLAYER STATUS BADGE */}
               <div className={`self-end bg-slate-100 border-4 border-slate-800 rounded-2xl px-4 py-2 shadow-xl min-w-[240px] mt-16 transition-transform ${hitEffect === 'player' ? 'animate-bounce' : ''}`}>
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-black text-xs text-slate-900 tracking-wider">
@@ -655,7 +742,6 @@ export default function Home() {
                   </span>
                   <span className="text-[11px] font-bold text-slate-600">Lv.{stats.level}</span>
                 </div>
-                {/* HP BAR */}
                 <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-900">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${getHpBarColor(battle.playerHp, stats.maxHp)}`}
@@ -669,7 +755,7 @@ export default function Home() {
 
             </div>
 
-            {/* 2. MIDDLE TEXT BANNER (포켓몬 대화 상자) */}
+            {/* 2. MIDDLE TEXT BANNER */}
             <div className="bg-slate-900 border-t-4 border-b-4 border-slate-800 p-4 min-h-[72px] flex items-center justify-between">
               <p className="text-xs sm:text-sm font-bold text-white leading-relaxed">
                 {battleText || `${battle.target.name}(이)가 등장했다!`}
@@ -677,39 +763,42 @@ export default function Home() {
               <span className="text-xs font-semibold text-amber-400 animate-bounce">▼</span>
             </div>
 
-            {/* 3. BOTTOM COMMAND BUTTONS (포켓몬 4구역 커맨드 버튼) */}
+            {/* 3. BOTTOM COMMAND BUTTONS */}
             {!battle.isOver ? (
               <div className="bg-slate-800 p-3 grid grid-cols-2 gap-2.5">
-                {/* 1. ATTACK (공격) */}
+                {/* 1. ATTACK */}
                 <button
-                  onClick={() => handleAction("attack")}
+                  onClick={() => executeTurn("attack")}
                   className="bg-rose-600 hover:bg-rose-500 text-white font-black py-3 px-4 rounded-2xl border-4 border-rose-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
                 >
                   <span className="flex items-center gap-1.5">⚔️ 공격 (ATTACK)</span>
                   <span className="text-[10px] bg-rose-800 px-2 py-0.5 rounded text-rose-200">기본</span>
                 </button>
 
-                {/* 2. DEFEND (방어) */}
+                {/* 2. DEFEND */}
                 <button
-                  onClick={() => handleAction("defend")}
+                  onClick={() => executeTurn("defend")}
                   className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 px-4 rounded-2xl border-4 border-blue-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
                 >
                   <span className="flex items-center gap-1.5">🛡️ 방어 (DEFEND)</span>
                   <span className="text-[10px] bg-blue-800 px-2 py-0.5 rounded text-blue-200">-50%피해</span>
                 </button>
 
-                {/* 3. SKILL (스킬) */}
+                {/* 3. SKILL (구구단 퀴즈) */}
                 <button
-                  onClick={() => handleAction("skill")}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3 px-4 rounded-2xl border-4 border-amber-700 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
+                  disabled={battle.skillCooldown > 0}
+                  onClick={handleOpenSkillQuiz}
+                  className="bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:border-slate-800 disabled:text-slate-500 text-slate-950 font-black py-3 px-4 rounded-2xl border-4 border-amber-700 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
                 >
-                  <span className="flex items-center gap-1.5">✨ 필살기 (SKILL)</span>
-                  <span className="text-[10px] bg-amber-700 px-2 py-0.5 rounded text-amber-100">+40%DMG</span>
+                  <span className="flex items-center gap-1.5">✨ 필살기 (구구단)</span>
+                  <span className="text-[10px] bg-amber-700 text-amber-100 px-2 py-0.5 rounded">
+                    {battle.skillCooldown > 0 ? `쿨다운 ${battle.skillCooldown}턴` : "+50%DMG"}
+                  </span>
                 </button>
 
-                {/* 4. ITEM / POTION (포션) */}
+                {/* 4. POTION */}
                 <button
-                  onClick={() => handleAction("potion")}
+                  onClick={() => executeTurn("potion")}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 px-4 rounded-2xl border-4 border-emerald-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:text-sm"
                 >
                   <span className="flex items-center gap-1.5">🧪 포션 (ITEM)</span>

@@ -16,15 +16,15 @@ export const ARMORS = [
   { id: "a_20", name: "용비늘 갑옷", reqLevel: 20, def: 80, hpBonus: 350, price: 4000, icon: "🐉🛡️", desc: "드래곤의 비늘로 만들어진 최고급 갑옷" },
 ];
 
-// 사냥터 및 미니 몬스터 데이터
+// 사냥터 및 미니 몬스터 데이터 (미니 몬스터: 7타에 사망 / 플레이어 10타 버팀 밸런싱)
 export const HUNTING_GROUNDS = [
   {
     id: "zone_1",
     name: "초심자의 숲 (Lv.1 ~ 5)",
     reqLevel: 1,
     monsters: [
-      { id: "m_1", name: "말랑 슬라임", hp: 45, atk: 12, def: 2, goldReward: 15, xpReward: 20, icon: "🟢" },
-      { id: "m_2", name: "야생 멧돼지", hp: 75, atk: 18, def: 4, goldReward: 25, xpReward: 35, icon: "🐗" },
+      { id: "m_1", name: "말랑 슬라임", hp: 126, maxHp: 126, atk: 22, def: 2, goldReward: 25, xpReward: 30, icon: "🟢" },
+      { id: "m_2", name: "야생 멧돼지", hp: 140, maxHp: 140, atk: 25, def: 3, goldReward: 35, xpReward: 45, icon: "🐗" },
     ],
   },
   {
@@ -32,8 +32,8 @@ export const HUNTING_GROUNDS = [
     name: "어둠의 동굴 (Lv.6 ~ 10)",
     reqLevel: 6,
     monsters: [
-      { id: "m_3", name: "고블린 정찰병", hp: 130, atk: 32, def: 8, goldReward: 45, xpReward: 60, icon: "👺" },
-      { id: "m_4", name: "해골 전사", hp: 180, atk: 42, def: 12, goldReward: 70, xpReward: 90, icon: "💀" },
+      { id: "m_3", name: "고블린 정찰병", hp: 343, maxHp: 343, atk: 58, def: 6, goldReward: 65, xpReward: 80, icon: "👺" },
+      { id: "m_4", name: "해골 전사", hp: 380, maxHp: 380, atk: 64, def: 8, goldReward: 90, xpReward: 110, icon: "💀" },
     ],
   },
   {
@@ -41,8 +41,8 @@ export const HUNTING_GROUNDS = [
     name: "황량한 황무지 (Lv.11 ~ 15)",
     reqLevel: 11,
     monsters: [
-      { id: "m_5", name: "오크 버서커", hp: 280, atk: 65, def: 18, goldReward: 120, xpReward: 150, icon: "👹" },
-      { id: "m_6", name: "다크 위저드", hp: 350, atk: 85, def: 22, goldReward: 180, xpReward: 220, icon: "🧙‍♂️" },
+      { id: "m_5", name: "오크 버서커", hp: 595, maxHp: 595, atk: 99, def: 10, goldReward: 150, xpReward: 180, icon: "👹" },
+      { id: "m_6", name: "다크 위저드", hp: 640, maxHp: 640, atk: 110, def: 12, goldReward: 220, xpReward: 260, icon: "🧙‍♂️" },
     ],
   },
   {
@@ -50,16 +50,13 @@ export const HUNTING_GROUNDS = [
     name: "심연의 틈새 (Lv.16 ~ 20)",
     reqLevel: 16,
     monsters: [
-      { id: "m_7", name: "헬하운드", hp: 500, atk: 120, def: 35, goldReward: 300, xpReward: 380, icon: "🐺🔥" },
-      { id: "m_8", name: "그림자 기사", hp: 650, atk: 150, def: 45, goldReward: 450, xpReward: 550, icon: "👤⚔️" },
+      { id: "m_7", name: "헬하운드", hp: 910, maxHp: 910, atk: 149, def: 15, goldReward: 380, xpReward: 450, icon: "🐺🔥" },
+      { id: "m_8", name: "그림자 기사", hp: 1000, maxHp: 1000, atk: 165, def: 18, goldReward: 550, xpReward: 650, icon: "👤⚔️" },
     ],
   },
 ];
 
-// 보스 데이터 (레벨 10, 15, 20)
-// 밸런스 공식:
-// - 플레이어가 적어도 7번 이상 공격해야 죽임
-// - 보스의 공격을 플레이어가 4번 정도 버텼을 때 죽음
+// 보스 데이터 (레벨 10, 15, 20 - 7타에 사망 / 플레이어 4타 버팀 밸런싱)
 export const BOSSES = [
   {
     id: "boss_10",
@@ -72,7 +69,7 @@ export const BOSSES = [
     icon: "👑👺",
     rewardGold: 1000,
     rewardXp: 800,
-    desc: "레벨 10 달성 시 도전 가능! 강력한 둔기로 무자비한 공격을 펼칩니다.",
+    desc: "레벨 10 달성 시 도전 가능! 7회 이상 공격해야 처치 가능합니다.",
   },
   {
     id: "boss_15",
@@ -85,7 +82,7 @@ export const BOSSES = [
     icon: "❄️🐉",
     rewardGold: 3000,
     rewardXp: 2000,
-    desc: "레벨 15 달성 시 도전 가능! 빙결 브레스로 모험가를 위협합니다.",
+    desc: "레벨 15 달성 시 도전 가능! 강력한 브레스로 플레이어를 압박합니다.",
   },
   {
     id: "boss_20",
