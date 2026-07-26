@@ -46,7 +46,7 @@ export default function Home() {
   const stats = calculatePlayerStats(player);
   const playerCurrentHp = player.currentHp !== undefined ? player.currentHp : stats.maxHp;
 
-  // Auth Listener
+  // Auth Listener & Battle Restoration
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -54,6 +54,11 @@ export default function Home() {
         const savedData = await loadGameData(currentUser.uid);
         if (savedData) {
           setPlayer(savedData);
+          // ⚔️ Restoring active ongoing battle if user left mid-battle!
+          if (savedData.activeBattle && !savedData.activeBattle.isOver) {
+            setBattle(savedData.activeBattle);
+            setBattleText(savedData.activeBattle.logs?.[0] || `${savedData.activeBattle.target?.name}(와)의 전투가 재개되었습니다!`);
+          }
         }
       }
       setAuthLoading(false);
@@ -109,7 +114,7 @@ export default function Home() {
     }
   };
 
-  // Start Battle
+  // Start Battle (Saves activeBattle to Firestore)
   const startBattle = (target, isBoss) => {
     if (isBoss && player.level < target.reqLevel) {
       alert(`🔒 ${target.name} 보스는 레벨 ${target.reqLevel} 이상부터 도전 가능합니다!`);
@@ -120,13 +125,12 @@ export default function Home() {
     if (startingHp <= 0) {
       startingHp = Math.round(stats.maxHp * 0.5);
       alert("🩹 체력이 0이었던 모험가가 50% 체력을 회복하고 전투에 진입합니다!");
-      setPlayer({ ...player, currentHp: startingHp });
     }
 
     const initialText = `${target.name}(이)가 무대에 등장했다! (현재 HP: ${startingHp} / ${stats.maxHp})`;
     setBattleText(initialText);
 
-    setBattle({
+    const newBattle = {
       target,
       isBoss,
       enemyHp: target.hp || target.maxHp,
@@ -139,7 +143,17 @@ export default function Home() {
       skillCooldown: 0,
       specialDefCooldown: 0,
       bossSpecialCooldown: 0,
-    });
+    };
+
+    const nextPlayerState = {
+      ...player,
+      currentHp: startingHp,
+      activeBattle: newBattle,
+    };
+
+    setPlayer(nextPlayerState);
+    setBattle(newBattle);
+    handleSave(nextPlayerState);
   };
 
   // 🎲 TRULY RANDOM ELEMENTARY SCHOOL MATH PROBLEM GENERATOR
@@ -431,7 +445,7 @@ export default function Home() {
     }
   };
 
-  // Turn Action Logic for Battle
+  // Turn Action Logic for Battle (With Active Battle State Persistence)
   const executeTurn = (actionType, quizSuccess = true, quizData = null) => {
     if (!battle || battle.isOver) return;
 
@@ -499,8 +513,11 @@ export default function Home() {
       const text = `🧪 포션을 사용하여 체력을 +${heal} 회복했다!`;
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
-      const nextPlayer = { ...player, potions: player.potions - 1, currentHp: currentPlayerHp };
+      
+      const updatedBattle = { ...battle, playerHp: currentPlayerHp, logs: newLogs };
+      const nextPlayer = { ...player, potions: player.potions - 1, currentHp: currentPlayerHp, activeBattle: updatedBattle };
       setPlayer(nextPlayer);
+      setBattle(updatedBattle);
       handleSave(nextPlayer);
     } else if (actionType === "generalFlee") {
       const fleeSuccess = Math.random() < 0.3;
@@ -509,12 +526,11 @@ export default function Home() {
         setBattleText(text);
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
 
-        setBattle({
-          ...battle,
-          logs: newLogs,
-          isOver: true,
-          isWin: false,
-        });
+        const endedBattle = { ...battle, logs: newLogs, isOver: true, isWin: false };
+        const nextPlayer = { ...player, activeBattle: null };
+        setPlayer(nextPlayer);
+        setBattle(endedBattle);
+        handleSave(nextPlayer);
         return;
       } else {
         const text = `❌ [30% 확률 실패!] 도망치기에 실패하여 발이 묶였습니다! 턴이 넘어갑니다.`;
@@ -529,12 +545,11 @@ export default function Home() {
           setBattleText(text);
           newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
 
-          setBattle({
-            ...battle,
-            logs: newLogs,
-            isOver: true,
-            isWin: false,
-          });
+          const endedBattle = { ...battle, logs: newLogs, isOver: true, isWin: false };
+          const nextPlayer = { ...player, activeBattle: null };
+          setPlayer(nextPlayer);
+          setBattle(endedBattle);
+          handleSave(nextPlayer);
           return;
         } else {
           const text = `❌ [정답! ${quizData.questionText} = ${quizData.answer}] 그러나 도망치기 확률(50%) 실패로 발이 묶였습니다! 턴이 넘어갑니다.`;
@@ -565,6 +580,15 @@ export default function Home() {
       const nextMaxHp = calculatePlayerStats({ ...player, level: newLevel }).maxHp;
       const finalHp = leveledUp ? nextMaxHp : currentPlayerHp;
 
+      const endedBattle = {
+        ...battle,
+        enemyHp: 0,
+        playerHp: finalHp,
+        logs: newLogs,
+        isOver: true,
+        isWin: true,
+      };
+
       const nextPlayerState = {
         ...player,
         gold: player.gold + earnedGold,
@@ -572,23 +596,16 @@ export default function Home() {
         level: newLevel,
         currentHp: finalHp,
         defeatedBossIds: newDefeatedBosses,
+        activeBattle: null, // Clear active battle on victory
       };
 
       setPlayer(nextPlayerState);
+      setBattle(endedBattle);
       handleSave(nextPlayerState);
-
-      setBattle({
-        ...battle,
-        enemyHp: 0,
-        playerHp: finalHp,
-        logs: newLogs,
-        isOver: true,
-        isWin: true,
-      });
       return;
     }
 
-    // 2. ENEMY COUNTER ATTACK
+    // 2. ENEMY COUNTER ATTACK (Update & Persist Active Battle State)
     setTimeout(() => {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
@@ -641,28 +658,27 @@ export default function Home() {
         setBattleText(loseText);
         newLogs.unshift(loseText);
 
-        const respawnState = {
-          ...player,
-          xp: remainingXp,
-          currentHp: respawnHp,
-        };
-        setPlayer(respawnState);
-        handleSave(respawnState);
-
-        setBattle({
+        const endedBattle = {
           ...battle,
           enemyHp: currentEnemyHp,
           playerHp: 0,
           logs: newLogs,
           isOver: true,
           isWin: false,
-        });
-      } else {
-        const nextPlayerState = { ...player, currentHp: nextPlayerHp };
-        setPlayer(nextPlayerState);
-        handleSave(nextPlayerState);
+        };
 
-        setBattle({
+        const respawnState = {
+          ...player,
+          xp: remainingXp,
+          currentHp: respawnHp,
+          activeBattle: null,
+        };
+        setPlayer(respawnState);
+        setBattle(endedBattle);
+        handleSave(respawnState);
+
+      } else {
+        const updatedBattle = {
           ...battle,
           enemyHp: currentEnemyHp,
           playerHp: nextPlayerHp,
@@ -671,7 +687,17 @@ export default function Home() {
           skillCooldown: nextSkillCooldown,
           specialDefCooldown: nextSpecialDefCooldown,
           bossSpecialCooldown: nextBossSpecialCooldown,
-        });
+        };
+
+        const nextPlayerState = {
+          ...player,
+          currentHp: nextPlayerHp,
+          activeBattle: updatedBattle, // ⚔️ PERSISTS EXACT BATTLE STATE TO FIRESTORE!
+        };
+
+        setPlayer(nextPlayerState);
+        setBattle(updatedBattle);
+        handleSave(nextPlayerState);
       }
     }, 600);
   };
@@ -717,18 +743,16 @@ export default function Home() {
     );
   }
 
-  // 2. INITIAL LOGIN GATEWAY SCREEN (로그인되지 않은 경우 보여지는 웰컴 게이트)
+  // 2. INITIAL LOGIN GATEWAY SCREEN
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden select-none">
         
-        {/* Background Decorative Glow */}
         <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-10 right-10 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="max-w-md w-full bg-slate-900 border-4 border-amber-500/60 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-center z-10 relative backdrop-blur-md">
           
-          {/* Title Badge */}
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold tracking-wider">
               <span>⚔️</span> 포켓몬 스타일 수학 RPG
@@ -741,14 +765,12 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Hero Sprite Display */}
           <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 flex items-center justify-center gap-6 shadow-inner">
             <span className="text-5xl filter drop-shadow-lg animate-bounce">🧙‍♂️</span>
             <span className="text-2xl text-amber-500 font-bold">VS</span>
             <span className="text-5xl filter drop-shadow-lg animate-pulse">👑👺</span>
           </div>
 
-          {/* Game Features */}
           <div className="text-left bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 space-y-2 text-xs">
             <div className="flex items-center gap-2 text-slate-200">
               <span>☁️</span> <span><strong>구글 계정 연동</strong>: 자동 Firestore 세이브 지원</span>
@@ -761,7 +783,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Login Buttons */}
           <div className="space-y-3 pt-2">
             <button
               onClick={handleGoogleLogin}
@@ -793,7 +814,7 @@ export default function Home() {
     );
   }
 
-  // 3. MAIN GAME SCREEN (로그인 성공 후 보여지는 게임 메인 화면)
+  // 3. MAIN GAME SCREEN
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
       {/* Top Header */}
@@ -804,7 +825,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">초등 수학 전 과정 완전 무작위 퀴즈 연동</p>
+            <p className="text-xs text-slate-400">⚔️ 전투 중 이탈 시 실시간 장면 복원 시스템 연동</p>
           </div>
         </div>
 
@@ -961,7 +982,7 @@ export default function Home() {
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
               <p className="text-xs text-slate-400">
-                🎲 전투 스킬/방어/도망 시 초등 수학 전 과정(덧셈, 뺄셈, 곱셈, 나눗셈, 소수 연산)이 완전 무작위 출제됩니다!
+                🎲 전투 중 창을 닫고 이탈하더라도 몬스터/플레이어 HP와 턴 수가 그대로 복원됩니다!
               </p>
 
               <div className="space-y-4">
