@@ -499,7 +499,9 @@ export default function Home() {
       const text = `🧪 포션을 사용하여 체력을 +${heal} 회복했다!`;
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
-      setPlayer({ ...player, potions: player.potions - 1, currentHp: currentPlayerHp });
+      const nextPlayer = { ...player, potions: player.potions - 1, currentHp: currentPlayerHp };
+      setPlayer(nextPlayer);
+      handleSave(nextPlayer);
     } else if (actionType === "generalFlee") {
       const fleeSuccess = Math.random() < 0.3;
       if (fleeSuccess) {
@@ -658,6 +660,7 @@ export default function Home() {
       } else {
         const nextPlayerState = { ...player, currentHp: nextPlayerHp };
         setPlayer(nextPlayerState);
+        handleSave(nextPlayerState);
 
         setBattle({
           ...battle,
