@@ -82,10 +82,10 @@ export default function Home() {
     }
 
     if (leveledUp) {
-      alert(`🎉 레벨 업! Lv.${newLevel} 달성! 스탯이 상승하고 새로운 장비/보스가 해금되었습니다!`);
+      alert(`🎉 레벨 업! Lv.${newLevel} 달성! 체력이 100% 회복되고 스탯이 상승했습니다!`);
     }
 
-    return { level: newLevel, xp: newXp };
+    return { level: newLevel, xp: newXp, leveledUp };
   };
 
   const handleGoogleLogin = async () => {
@@ -395,17 +395,20 @@ export default function Home() {
       const earnedGold = battle.isBoss ? battle.target.rewardGold : battle.target.goldReward;
       const earnedXp = battle.isBoss ? battle.target.rewardXp : battle.target.xpReward;
 
-      const { level: newLevel, xp: newXp } = checkLevelUp(player.xp + earnedXp, player.level);
+      const { level: newLevel, xp: newXp, leveledUp } = checkLevelUp(player.xp + earnedXp, player.level);
       const newDefeatedBosses = battle.isBoss && !player.defeatedBossIds.includes(battle.target.id)
         ? [...player.defeatedBossIds, battle.target.id]
         : player.defeatedBossIds;
+
+      const nextMaxHp = calculatePlayerStats({ ...player, level: newLevel }).maxHp;
+      const finalHp = leveledUp ? nextMaxHp : currentPlayerHp;
 
       const nextPlayerState = {
         ...player,
         gold: player.gold + earnedGold,
         xp: newXp,
         level: newLevel,
-        currentHp: currentPlayerHp,
+        currentHp: finalHp,
         defeatedBossIds: newDefeatedBosses,
       };
 

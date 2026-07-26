@@ -23,7 +23,7 @@ export const HUNTING_GROUNDS = [
     name: "초심자의 숲 (Lv.1 ~ 5)",
     reqLevel: 1,
     monsters: [
-      { id: "m_1", name: "말랑 슬라임", hp: 126, maxHp: 126, atk: 22, def: 2, goldReward: 25, xpReward: 30, icon: "🟢" },
+      { id: "m_1", name: "말랑 슬라임", hp: 88, maxHp: 88, atk: 15, def: 2, goldReward: 25, xpReward: 30, icon: "🟢" },
       { id: "m_2", name: "야생 멧돼지", hp: 140, maxHp: 140, atk: 25, def: 3, goldReward: 35, xpReward: 45, icon: "🐗" },
     ],
   },
