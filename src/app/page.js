@@ -28,19 +28,20 @@ export default function Home() {
   const [shopCategory, setShopCategory] = useState("weapons");
 
   // Battle state
-  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0, specialDefCooldown: 0 }
   const [battle, setBattle] = useState(null);
   const [battleText, setBattleText] = useState("");
   const [saveNotification, setSaveNotification] = useState("");
   const [hitEffect, setHitEffect] = useState(null);
 
-  // Multiplication Quiz State
+  // Multiplication Quiz State for Battle Skill
   const [quizModal, setQuizModal] = useState(null);
+
+  // Inn Rest 10-Question Challenge State
+  // { questions: [{num1, num2, answer}], currentIndex: 0, correctCount: 0, userAnswer: "", isComplete: false, isSuccess: false }
+  const [innChallenge, setInnChallenge] = useState(null);
 
   // Stats
   const stats = calculatePlayerStats(player);
-
-  // Ensure player has currentHp initialized
   const playerCurrentHp = player.currentHp !== undefined ? player.currentHp : stats.maxHp;
 
   // Auth Listener
@@ -104,18 +105,17 @@ export default function Home() {
     }
   };
 
-  // Start Battle (HP Persistent!)
+  // Start Battle
   const startBattle = (target, isBoss) => {
     if (isBoss && player.level < target.reqLevel) {
       alert(`🔒 ${target.name} 보스는 레벨 ${target.reqLevel} 이상부터 도전 가능합니다!`);
       return;
     }
 
-    // Check if player HP is 0, auto heal to 50% HP
     let startingHp = playerCurrentHp;
     if (startingHp <= 0) {
       startingHp = Math.round(stats.maxHp * 0.5);
-      alert("🩹 체력이 0이었던 모험가가 마을에서 50% 체력을 회복하고 전투에 진입합니다!");
+      alert("🩹 체력이 0이었던 모험가가 부활하여 50% 체력으로 전투에 진입합니다!");
       setPlayer({ ...player, currentHp: startingHp });
     }
 
@@ -127,7 +127,7 @@ export default function Home() {
       isBoss,
       enemyHp: target.hp || target.maxHp,
       maxEnemyHp: target.hp || target.maxHp,
-      playerHp: startingHp, // Carry over current HP!
+      playerHp: startingHp,
       logs: [initialText],
       isOver: false,
       isWin: false,
@@ -137,7 +137,7 @@ export default function Home() {
     });
   };
 
-  // Open Skill Quiz (구구단 모달)
+  // Open Skill Quiz (구구단 스킬)
   const handleOpenSkillQuiz = () => {
     if (!battle || battle.isOver) return;
     if (battle.skillCooldown > 0) {
@@ -145,8 +145,8 @@ export default function Home() {
       return;
     }
 
-    const n1 = Math.floor(Math.random() * 8) + 2; // 2 ~ 9
-    const n2 = Math.floor(Math.random() * 8) + 2; // 2 ~ 9
+    const n1 = Math.floor(Math.random() * 8) + 2;
+    const n2 = Math.floor(Math.random() * 8) + 2;
     setQuizModal({
       num1: n1,
       num2: n2,
@@ -155,7 +155,6 @@ export default function Home() {
     });
   };
 
-  // Submit Quiz
   const handleQuizSubmit = (e) => {
     e.preventDefault();
     if (!quizModal) return;
@@ -167,12 +166,74 @@ export default function Home() {
     executeTurn("skill", isCorrect, currentQuiz);
   };
 
+  // Open Inn Rest Challenge (여관 구구단 10문제 도전!)
+  const handleStartInnChallenge = () => {
+    if (playerCurrentHp >= stats.maxHp) {
+      alert("이미 체력이 가득 차있습니다!");
+      return;
+    }
+
+    // Generate 10 random multiplication questions
+    const generatedQuestions = Array.from({ length: 10 }, () => {
+      const n1 = Math.floor(Math.random() * 8) + 2; // 2~9
+      const n2 = Math.floor(Math.random() * 8) + 2; // 2~9
+      return { num1: n1, num2: n2, answer: n1 * n2 };
+    });
+
+    setInnChallenge({
+      questions: generatedQuestions,
+      currentIndex: 0,
+      correctCount: 0,
+      userAnswer: "",
+      isComplete: false,
+      isSuccess: false,
+    });
+  };
+
+  // Submit Single Question in Inn Challenge
+  const handleInnQuestionSubmit = (e) => {
+    e.preventDefault();
+    if (!innChallenge || innChallenge.isComplete) return;
+
+    const currentQ = innChallenge.questions[innChallenge.currentIndex];
+    const isCorrect = parseInt(innChallenge.userAnswer, 10) === currentQ.answer;
+    const nextCorrect = isCorrect ? innChallenge.correctCount + 1 : innChallenge.correctCount;
+    const nextIndex = innChallenge.currentIndex + 1;
+
+    if (nextIndex >= 10) {
+      // Challenge Complete! (Need >= 6 correct)
+      const passed = nextCorrect >= 6;
+      setInnChallenge({
+        ...innChallenge,
+        currentIndex: 10,
+        correctCount: nextCorrect,
+        userAnswer: "",
+        isComplete: true,
+        isSuccess: passed,
+      });
+
+      if (passed) {
+        const nextPlayer = { ...player, currentHp: stats.maxHp };
+        setPlayer(nextPlayer);
+        handleSave(nextPlayer);
+      }
+    } else {
+      // Next Question
+      setInnChallenge({
+        ...innChallenge,
+        currentIndex: nextIndex,
+        correctCount: nextCorrect,
+        userAnswer: "",
+      });
+    }
+  };
+
   // Turn Action Logic
   const executeTurn = (actionType, quizSuccess = true, quizData = null) => {
     if (!battle || battle.isOver) return;
 
     let newLogs = [...battle.logs];
-    let defenseMultiplier = 1.0; // 1.0 = normal damage, 0.5 = normal defend, 0.1 = special defend
+    let defenseMultiplier = 1.0;
     let playerDamage = 0;
     let currentEnemyHp = battle.enemyHp;
     let currentPlayerHp = battle.playerHp;
@@ -196,7 +257,7 @@ export default function Home() {
 
         playerDamage = Math.round(calculateDamage(stats.totalAtk, battle.target.def) * 1.5);
         currentEnemyHp = Math.max(0, battle.enemyHp - playerDamage);
-        nextSkillCooldown = 2; // 2 turns cooldown
+        nextSkillCooldown = 2;
 
         const text = `🎉 [구구단 정답! ${quizData.num1}×${quizData.num2}=${quizData.answer}] ✨ 1.5배 강력한 필살 스킬 발동! ${battle.target.name}에게 ${playerDamage} 데미지!`;
         setBattleText(text);
@@ -207,7 +268,7 @@ export default function Home() {
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
       }
     } else if (actionType === "defend") {
-      defenseMultiplier = 0.5; // 50% damage reduction (0.5x)
+      defenseMultiplier = 0.5;
       const text = `🛡️ 일반 방어 자세! 이번 턴 피격 데미지 50% 감소 (0.5배)`;
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
@@ -216,8 +277,8 @@ export default function Home() {
         alert(`⏳ 특수 방어 쿨타임 중입니다! (${battle.specialDefCooldown}턴 남음)`);
         return;
       }
-      defenseMultiplier = 0.1; // 90% damage reduction (0.1x)
-      nextSpecialDefCooldown = 3; // 3 turns cooldown
+      defenseMultiplier = 0.1;
+      nextSpecialDefCooldown = 3;
 
       const text = `🛡️✨ 특수 방어 발동! 이번 턴 피격 데미지 90% 차단! (0.1배)`;
       setBattleText(text);
@@ -254,7 +315,7 @@ export default function Home() {
         gold: player.gold + earnedGold,
         xp: newXp,
         level: newLevel,
-        currentHp: currentPlayerHp, // Save remaining HP!
+        currentHp: currentPlayerHp,
         defeatedBossIds: newDefeatedBosses,
       };
 
@@ -272,7 +333,7 @@ export default function Home() {
       return;
     }
 
-    // 2. ENEMY COUNTER ATTACK (Monster ALWAYS counter attacks)
+    // 2. ENEMY COUNTER ATTACK
     setTimeout(() => {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
@@ -288,7 +349,6 @@ export default function Home() {
       setBattleText(enemyText);
       newLogs.unshift(`[Turn ${battle.turn}] ${enemyText}`);
 
-      // Save player HP continuously
       const nextPlayerState = { ...player, currentHp: nextPlayerHp };
       setPlayer(nextPlayerState);
 
@@ -347,17 +407,6 @@ export default function Home() {
     handleSave(next);
   };
 
-  // Heal at Town (Rest)
-  const handleRestAtTown = () => {
-    const cost = 30;
-    if (player.gold < cost) return alert("골드가 부족합니다! (휴식비: 30G)");
-    if (playerCurrentHp >= stats.maxHp) return alert("이미 체력이 가득 차있습니다!");
-    const next = { ...player, gold: player.gold - cost, currentHp: stats.maxHp };
-    setPlayer(next);
-    handleSave(next);
-    alert("🍺 여관에서 휴식을 취해 체력을 100% 회복했습니다!");
-  };
-
   const getHpBarColor = (current, max) => {
     const pct = (current / max) * 100;
     if (pct > 50) return "bg-emerald-500";
@@ -375,7 +424,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">특수 방어(-90%) & HP 연속 유지 시스템</p>
+            <p className="text-xs text-slate-400">여관 10문제 구구단 휴식 테스트 연동</p>
           </div>
         </div>
 
@@ -448,8 +497,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Persistent HP Bar */}
-            <div className="space-y-1.5 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            {/* Persistent HP Bar & Inn Rest Button */}
+            <div className="space-y-2 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-slate-300">현재 체력 (연속 유지)</span>
                 <span className="text-emerald-400">{playerCurrentHp} / {stats.maxHp} HP</span>
@@ -458,10 +507,10 @@ export default function Home() {
                 <div className={`h-full transition-all duration-300 ${getHpBarColor(playerCurrentHp, stats.maxHp)}`} style={{ width: `${Math.max(0, (playerCurrentHp / stats.maxHp) * 100)}%` }}></div>
               </div>
               <button
-                onClick={handleRestAtTown}
-                className="w-full mt-2 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition flex items-center justify-center gap-1"
+                onClick={handleStartInnChallenge}
+                className="w-full mt-1 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border border-emerald-400/40 text-white text-xs font-extrabold transition shadow flex items-center justify-center gap-1.5 active:scale-95"
               >
-                🍺 여관에서 휴식하기 (30G로 100% 회복)
+                🍺 마을 여관 휴식 (구구단 10문제 도전!)
               </button>
             </div>
 
@@ -551,7 +600,7 @@ export default function Home() {
           {activeTab === "hunt" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
-              <p className="text-xs text-slate-400">전투 후 남은 HP는 다음 전투에 그대로 유지됩니다. (여관에서 30G로 100% 회복 가능)</p>
+              <p className="text-xs text-slate-400">마을 여관에서 구구단 10문제 중 6개를 맞히면 체력이 100% 회복됩니다!</p>
 
               <div className="space-y-4">
                 {HUNTING_GROUNDS.map((zone) => {
@@ -705,7 +754,104 @@ export default function Home() {
         </section>
       </main>
 
-      {/* 🔴 MULTIPLICATION QUIZ MODAL */}
+      {/* 🔴 INN REST 10-QUESTION QUIZ CHALLENGE MODAL */}
+      {innChallenge && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-4 border-emerald-500 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in">
+            
+            {/* Header */}
+            <div className="text-center">
+              <div className="inline-block p-3 rounded-full bg-emerald-500/20 text-emerald-400 text-3xl mb-2">
+                🍺
+              </div>
+              <h3 className="text-xl font-black text-white">마을 여관 구구단 시험</h3>
+              <p className="text-xs text-slate-400 mt-1">10문제 중 6문제 이상 맞히면 체력이 100% 회복됩니다!</p>
+            </div>
+
+            {!innChallenge.isComplete ? (
+              <div className="space-y-4">
+                {/* Progress & Current Score */}
+                <div className="flex justify-between items-center text-xs font-bold">
+                  <span className="text-emerald-400">문제 {innChallenge.currentIndex + 1} / 10</span>
+                  <span className="text-amber-400">현재 맞힌 개수: {innChallenge.correctCount}개 (목표: 6개+)</span>
+                </div>
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${((innChallenge.currentIndex) / 10) * 100}%` }}></div>
+                </div>
+
+                {/* Current Math Question */}
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-4xl font-black text-emerald-400 text-center tracking-wider font-mono shadow-inner">
+                  {innChallenge.questions[innChallenge.currentIndex].num1} × {innChallenge.questions[innChallenge.currentIndex].num2} = ?
+                </div>
+
+                {/* Input Form */}
+                <form onSubmit={handleInnQuestionSubmit} className="space-y-3">
+                  <input
+                    type="number"
+                    autoFocus
+                    placeholder="정답 입력"
+                    value={innChallenge.userAnswer}
+                    onChange={(e) => setInnChallenge({ ...innChallenge, userAnswer: e.target.value })}
+                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-500 rounded-xl py-3 px-4 text-center font-bold text-2xl text-white outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setInnChallenge(null)}
+                      className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs hover:bg-slate-700 transition"
+                    >
+                      포기하기
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition shadow-lg"
+                    >
+                      제출 (Next ➔)
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              /* Challenge Result Screen */
+              <div className="text-center space-y-4 py-2">
+                {innChallenge.isSuccess ? (
+                  <div className="space-y-3">
+                    <div className="text-5xl">🎉</div>
+                    <h4 className="text-2xl font-black text-emerald-400">여관 휴식 성공!</h4>
+                    <p className="text-sm text-slate-200">
+                      10문제 중 <span className="font-bold text-amber-400">{innChallenge.correctCount}개</span>를 맞히셨습니다!
+                    </p>
+                    <p className="text-xs text-emerald-300 font-bold bg-emerald-500/20 py-2 rounded-xl border border-emerald-500/30">
+                      💖 체력이 100% 회복되었습니다!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-5xl">❌</div>
+                    <h4 className="text-2xl font-black text-rose-400">여관 휴식 실패...</h4>
+                    <p className="text-sm text-slate-200">
+                      10문제 중 <span className="font-bold text-rose-400">{innChallenge.correctCount}개</span>만 맞혔습니다.
+                    </p>
+                    <p className="text-xs text-rose-300 font-semibold bg-rose-500/20 py-2 rounded-xl border border-rose-500/30">
+                      (6개 이상 맞혀야 휴식이 가능합니다.)
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setInnChallenge(null)}
+                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition mt-2"
+                >
+                  확인 (마을로)
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* 🔴 MULTIPLICATION QUIZ MODAL FOR SKILL */}
       {quizModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-4 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5">
@@ -819,10 +965,9 @@ export default function Home() {
               <span className="text-xs font-semibold text-amber-400 animate-bounce">▼</span>
             </div>
 
-            {/* 3. BOTTOM COMMAND BUTTONS (공격 / 일반방어 / 특수방어 / 필살기 / 포션) */}
+            {/* 3. BOTTOM COMMAND BUTTONS */}
             {!battle.isOver ? (
               <div className="bg-slate-800 p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {/* 1. ATTACK */}
                 <button
                   onClick={() => executeTurn("attack")}
                   className="bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-rose-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
@@ -831,7 +976,6 @@ export default function Home() {
                   <span className="text-[10px] bg-rose-800 px-1.5 py-0.5 rounded text-rose-200">기본</span>
                 </button>
 
-                {/* 2. REGULAR DEFEND (0.5x) */}
                 <button
                   onClick={() => executeTurn("defend")}
                   className="bg-blue-600 hover:bg-blue-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-blue-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
@@ -840,7 +984,6 @@ export default function Home() {
                   <span className="text-[10px] bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">0.5배피해</span>
                 </button>
 
-                {/* 3. SPECIAL DEFEND (0.1x, Cooldown 3) */}
                 <button
                   disabled={battle.specialDefCooldown > 0}
                   onClick={() => executeTurn("specialDefend")}
@@ -852,7 +995,6 @@ export default function Home() {
                   </span>
                 </button>
 
-                {/* 4. SKILL (구구단) */}
                 <button
                   disabled={battle.skillCooldown > 0}
                   onClick={handleOpenSkillQuiz}
@@ -864,7 +1006,6 @@ export default function Home() {
                   </span>
                 </button>
 
-                {/* 5. POTION */}
                 <button
                   onClick={() => executeTurn("potion")}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-emerald-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:col-span-2"
