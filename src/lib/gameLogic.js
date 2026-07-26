@@ -33,7 +33,7 @@ export function calculatePlayerStats(player) {
   const maxHp = baseHp + (armor.hpBonus || 0);
   const totalAtk = baseAtk + (weapon.atk || 0);
   const totalDef = baseDef + (armor.def || 0);
-  const maxXp = level * 60;
+  const maxXp = level <= 10 ? level * 20 : level * 60;
 
   return {
     level,

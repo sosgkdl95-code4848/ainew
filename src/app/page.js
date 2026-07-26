@@ -79,14 +79,16 @@ export default function Home() {
     setTimeout(() => setSaveNotification(""), 3000);
   };
 
-  // Level Up Check
+  // Level Up Check (초반 10레벨까지속성 레벨업!)
   const checkLevelUp = (currentXp, currentLevel) => {
     let newXp = currentXp;
     let newLevel = currentLevel;
     let leveledUp = false;
 
-    while (newXp >= newLevel * 60 && newLevel < 20) {
-      newXp -= newLevel * 60;
+    const getReqXp = (lvl) => (lvl <= 10 ? lvl * 20 : lvl * 60);
+
+    while (newXp >= getReqXp(newLevel) && newLevel < 20) {
+      newXp -= getReqXp(newLevel);
       newLevel += 1;
       leveledUp = true;
     }
