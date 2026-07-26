@@ -142,31 +142,20 @@ export default function Home() {
     });
   };
 
-  // 🎲 TRULY RANDOM ELEMENTARY SCHOOL MATH PROBLEM GENERATOR (초등 수학 전 과정 완전 무작위 출제)
+  // 🎲 TRULY RANDOM ELEMENTARY SCHOOL MATH PROBLEM GENERATOR
   const generateBattleMathProblem = () => {
-    // 7가지 초등 수학 유형 중 무작위 선택
-    // 0: 구구단 및 자연수 곱셈
-    // 1: 자연수 나눗셈
-    // 2: 자연수 덧셈 / 뺄셈
-    // 3: 소수의 곱셈
-    // 4: 소수의 나눗셈
-    // 5: 소수의 덧셈
-    // 6: 소수의 뺄셈
     const type = Math.floor(Math.random() * 7);
 
     if (type === 0) {
-      // 구구단 및 자연수 곱셈 (예: 7 × 8, 14 × 6)
       const n1 = Math.floor(Math.random() * 15) + 2;
       const n2 = Math.floor(Math.random() * 9) + 2;
       return { questionText: `${n1} × ${n2}`, answer: n1 * n2, typeName: "자연수 곱셈" };
     } else if (type === 1) {
-      // 자연수 나눗셈 (예: 56 ÷ 7, 96 ÷ 8)
       const ans = Math.floor(Math.random() * 12) + 2;
       const divisor = Math.floor(Math.random() * 9) + 2;
       const dividend = ans * divisor;
       return { questionText: `${dividend} ÷ ${divisor}`, answer: ans, typeName: "자연수 나눗셈" };
     } else if (type === 2) {
-      // 자연수 덧셈 / 뺄셈 (예: 145 + 238, 500 - 176)
       const isAdd = Math.random() < 0.5;
       if (isAdd) {
         const n1 = Math.floor(Math.random() * 300) + 15;
@@ -178,13 +167,11 @@ export default function Home() {
         return { questionText: `${n1} - ${n2}`, answer: n1 - n2, typeName: "자연수 뺄셈" };
       }
     } else if (type === 3) {
-      // 소수의 곱셈 (예: 2.5 × 4, 0.25 × 8, 1.2 × 3)
       const factor1 = Math.round((Math.floor(Math.random() * 40 + 2) * 0.25) * 100) / 100;
       const factor2 = [2, 4, 5, 8, 10][Math.floor(Math.random() * 5)];
       const ans = Math.round(factor1 * factor2 * 100) / 100;
       return { questionText: `${factor1} × ${factor2}`, answer: ans, typeName: "소수 곱셈" };
     } else if (type === 4) {
-      // 소수의 나눗셈 (예: 7.2 ÷ 4, 0.75 ÷ 3, 4.8 ÷ 0.6)
       const isDecimalDivisor = Math.random() < 0.3;
       if (isDecimalDivisor) {
         const ans = Math.floor(Math.random() * 15) + 2;
@@ -198,13 +185,11 @@ export default function Home() {
         return { questionText: `${dividend} ÷ ${divisor}`, answer: ans, typeName: "소수 나눗셈" };
       }
     } else if (type === 5) {
-      // 소수의 덧셈 (예: 3.4 + 2.8, 1.25 + 2.45)
       const n1 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.1) * 10) / 10;
       const n2 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.1) * 10) / 10;
       const ans = Math.round((n1 + n2) * 10) / 10;
       return { questionText: `${n1} + ${n2}`, answer: ans, typeName: "소수 덧셈" };
     } else {
-      // 소수의 뺄셈 (예: 7.5 - 3.2, 5.0 - 1.8)
       const n1 = Math.round((Math.floor(Math.random() * 50 + 20) * 0.1) * 10) / 10;
       const n2 = Math.round((Math.floor(Math.random() * (n1 * 10 - 5)) * 0.1) * 10) / 10;
       const ans = Math.round((n1 - n2) * 10) / 10;
@@ -719,6 +704,93 @@ export default function Home() {
     return "bg-rose-600 animate-pulse";
   };
 
+  // 1. INITIAL LOADING SCREEN
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 font-sans p-4">
+        <div className="text-5xl animate-bounce mb-4">🧙‍♂️</div>
+        <p className="text-lg font-bold text-amber-400">모험 준비 중...</p>
+      </div>
+    );
+  }
+
+  // 2. INITIAL LOGIN GATEWAY SCREEN (로그인되지 않은 경우 보여지는 웰컴 게이트)
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden select-none">
+        
+        {/* Background Decorative Glow */}
+        <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-10 right-10 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="max-w-md w-full bg-slate-900 border-4 border-amber-500/60 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-center z-10 relative backdrop-blur-md">
+          
+          {/* Title Badge */}
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold tracking-wider">
+              <span>⚔️</span> 포켓몬 스타일 수학 RPG
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
+              ainew RPG
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400">
+              초등 수학 연산과 함께 전설의 보스를 토벌하는 모험을 시작하세요!
+            </p>
+          </div>
+
+          {/* Hero Sprite Display */}
+          <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 flex items-center justify-center gap-6 shadow-inner">
+            <span className="text-5xl filter drop-shadow-lg animate-bounce">🧙‍♂️</span>
+            <span className="text-2xl text-amber-500 font-bold">VS</span>
+            <span className="text-5xl filter drop-shadow-lg animate-pulse">👑👺</span>
+          </div>
+
+          {/* Game Features */}
+          <div className="text-left bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 space-y-2 text-xs">
+            <div className="flex items-center gap-2 text-slate-200">
+              <span>☁️</span> <span><strong>구글 계정 연동</strong>: 자동 Firestore 세이브 지원</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-200">
+              <span>📐</span> <span><strong>소수 나눗셈 세로셈</strong>: 여관 단계별 학습 체력 회복</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-200">
+              <span>🎲</span> <span><strong>무작위 연산 사냥터</strong>: 초등 수학 전 범위 퀴즈 출제</span>
+            </div>
+          </div>
+
+          {/* Login Buttons */}
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full py-4 px-6 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-black text-sm transition shadow-xl flex items-center justify-center gap-3 active:scale-95 border-2 border-slate-200"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              Google 계정으로 시작하기 (자동 세이브)
+            </button>
+
+            <button
+              onClick={handleAnonymousLogin}
+              className="w-full py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs transition border border-slate-700 flex items-center justify-center gap-2 active:scale-95"
+            >
+              👤 익명 게스트로 시작하기
+            </button>
+          </div>
+
+          <p className="text-[11px] text-slate-500">
+            로그인하시면 플레이 데이터가 안전하게 보관됩니다.
+          </p>
+
+        </div>
+      </div>
+    );
+  }
+
+  // 3. MAIN GAME SCREEN (로그인 성공 후 보여지는 게임 메인 화면)
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
       {/* Top Header */}
@@ -729,33 +801,20 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">🎲 초등 수학 전 과정 완전 무작위 퀴즈 연동</p>
+            <p className="text-xs text-slate-400">초등 수학 전 과정 완전 무작위 퀴즈 연동</p>
           </div>
         </div>
 
         {/* Auth & Save */}
         <div className="flex items-center gap-3">
-          {authLoading ? (
-            <span className="text-xs text-slate-400">인증 확인 중...</span>
-          ) : user ? (
-            <div className="flex items-center gap-3 bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-700">
-              <span className="text-xs font-medium text-slate-300">
-                {user.isAnonymous ? "👤 익명" : `🌐 ${user.displayName || user.email}`}
-              </span>
-              <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white underline">
-                로그아웃
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button onClick={handleGoogleLogin} className="px-3 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-bold shadow">
-                Google 로그인
-              </button>
-              <button onClick={handleAnonymousLogin} className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-700">
-                익명 로그인
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-3 bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-700">
+            <span className="text-xs font-medium text-slate-300">
+              {user.isAnonymous ? "👤 익명 게스트" : `🌐 ${user.displayName || user.email}`}
+            </span>
+            <button onClick={() => signOut(auth)} className="text-xs text-slate-400 hover:text-white underline">
+              로그아웃
+            </button>
+          </div>
 
           <button
             onClick={() => handleSave()}
