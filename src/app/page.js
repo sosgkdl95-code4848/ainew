@@ -28,7 +28,7 @@ export default function Home() {
   const [shopCategory, setShopCategory] = useState("weapons");
 
   // Battle state
-  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0, specialDefCooldown: 0, lastBossSpecialTurn: false }
+  // { target, isBoss, enemyHp, maxEnemyHp, playerHp, logs: [], isOver: false, isWin: false, turn: 1, skillCooldown: 0, specialDefCooldown: 0, bossSpecialCooldown: 0 }
   const [battle, setBattle] = useState(null);
   const [battleText, setBattleText] = useState("");
   const [saveNotification, setSaveNotification] = useState("");
@@ -134,7 +134,7 @@ export default function Home() {
       turn: 1,
       skillCooldown: 0,
       specialDefCooldown: 0,
-      lastBossSpecialTurn: false, // Tracks if previous boss attack was special
+      bossSpecialCooldown: 0, // Cooldown timer after boss fires a Special Attack
     });
   };
 
@@ -403,18 +403,26 @@ export default function Home() {
       return;
     }
 
-    // 2. ENEMY COUNTER ATTACK (With Boss Special Attack Rules)
+    // 2. ENEMY COUNTER ATTACK
     setTimeout(() => {
       setHitEffect("player");
       setTimeout(() => setHitEffect(null), 500);
 
-      // Boss Attack Type Decision:
-      // - Special Attack allowed ONLY on Turn 3 or later (battle.turn >= 3)
-      // - Cannot happen consecutively (!battle.lastBossSpecialTurn)
-      // - Random 50% chance when conditions are met!
+      // Boss Special Attack Logic:
+      // - Trigger Condition: battle.isBoss && turn >= 3 && bossSpecialCooldown === 0
+      // - 50% random chance when eligible
+      // - After firing: bossSpecialCooldown set to 3 (Must wait 3 turns after use!)
+      // - Level 15+ Bosses (Lv.15 Frost Dragon, Lv.20 Demon Lord): NO explicit warning banner tag!
       let isBossSpecialAttack = false;
-      if (battle.isBoss && battle.turn >= 3 && !battle.lastBossSpecialTurn) {
+      const currentBossCooldown = battle.bossSpecialCooldown || 0;
+
+      if (battle.isBoss && battle.turn >= 3 && currentBossCooldown === 0) {
         isBossSpecialAttack = Math.random() < 0.5;
+      }
+
+      let nextBossSpecialCooldown = currentBossCooldown > 0 ? currentBossCooldown - 1 : 0;
+      if (isBossSpecialAttack) {
+        nextBossSpecialCooldown = 3; // Reset 3-turn cooldown after Special Attack
       }
 
       let bossAttackMultiplier = isBossSpecialAttack ? 1.5 : 1.0;
@@ -425,9 +433,17 @@ export default function Home() {
       
       let enemyText = "";
       if (isBossSpecialAttack) {
-        enemyText = `🔥 [보스 특수 스킬 공격!] ${battle.target.name}의 분노한 필살 공격! 모험가에게 ${finalEnemyDamage} 데미지! ${
-          defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
-        }`;
+        // Level 15+ Bosses do NOT show explicit warning banner tag
+        const showWarningTag = (battle.target.reqLevel || 10) < 15;
+        if (showWarningTag) {
+          enemyText = `🔥 [보스 특수 스킬 공격!] ${battle.target.name}의 분노한 필살 공격! 모험가에게 ${finalEnemyDamage} 데미지! ${
+            defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
+          }`;
+        } else {
+          enemyText = `💥 ${battle.target.name}의 치명적인 일격! 모험가에게 ${finalEnemyDamage} 데미지! ${
+            defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
+          }`;
+        }
       } else {
         enemyText = `💥 ${battle.target.name}의 기본 공격! 모험가에게 ${finalEnemyDamage} 데미지! ${
           defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
@@ -466,7 +482,7 @@ export default function Home() {
           turn: battle.turn + 1,
           skillCooldown: nextSkillCooldown,
           specialDefCooldown: nextSpecialDefCooldown,
-          lastBossSpecialTurn: isBossSpecialAttack, // Record if this attack was special
+          bossSpecialCooldown: nextBossSpecialCooldown,
         });
       }
     }, 600);
@@ -513,7 +529,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">보스 3턴 이후 특수 공격 & 랜덤 패턴 시스템</p>
+            <p className="text-xs text-slate-400">Lv.15+ 보스 은밀한 특수 공격 (3턴 쿨타임)</p>
           </div>
         </div>
 
@@ -681,7 +697,7 @@ export default function Home() {
                 activeTab === "boss" ? "bg-rose-600 text-white shadow-md animate-pulse" : "text-rose-400 hover:text-rose-300 hover:bg-slate-800/50"
               }`}
             >
-              <span>👑</span> 보스 레이드 (랜덤 특수공격)
+              <span>👑</span> 보스 레이드 (Lv.15+ 은밀한 특공)
             </button>
           </div>
 
@@ -814,9 +830,9 @@ export default function Home() {
           {/* TAB 3: BOSS */}
           {activeTab === "boss" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전 (랜덤 특수공격 패턴)</h3>
+              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전 (Lv.15+ 은밀한 특수 공격!)</h3>
               <p className="text-xs text-slate-400">
-                🔥 보스는 3턴 이후부터 기본 공격 및 강력한 특수 공격(1.5배)을 랜덤 시전합니다! (연속 시전 불가)
+                🔥 Lv.15 이상의 강력한 보스는 경고 표시 없이 은밀하게 특수 공격(1.5배)을 감행합니다! (시전 후 3턴 쿨타임)
               </p>
 
               <div className="space-y-4">
@@ -831,7 +847,7 @@ export default function Home() {
                           <h4 className="font-black text-lg text-white">{boss.name} <span className="text-xs text-rose-300">Lv.{boss.reqLevel}</span></h4>
                           <p className="text-xs text-slate-300 mt-0.5">{boss.desc}</p>
                           <p className="text-[11px] text-rose-400 font-semibold mt-1">
-                            🔥 특수 공격 조건: 3턴 이후 50% 확률 발동 (연속 발동 불가)
+                            {boss.reqLevel >= 15 ? "😈 [고난도] 경고 없이 무작위 특수 공격 시전 (사용 후 3턴 쿨타임)" : "🔥 3턴 이후 경고 문구와 함께 특수 공격 50% 확률 시전"}
                           </p>
                         </div>
                       </div>
