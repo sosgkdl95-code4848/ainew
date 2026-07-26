@@ -33,11 +33,11 @@ export default function Home() {
   const [saveNotification, setSaveNotification] = useState("");
   const [hitEffect, setHitEffect] = useState(null);
 
-  // Multiplication Quiz State for Battle Skill
+  // Math Quiz Modal State (for Battle Skill & Special Defend)
+  // { actionType: "skill"|"specialDefend", questionText: "", answer: 0, userAnswer: "", isBoss: false }
   const [quizModal, setQuizModal] = useState(null);
 
   // Inn Rest 10-Question Challenge State
-  // { questions: [{num1, num2, answer}], currentIndex: 0, correctCount: 0, userAnswer: "", isComplete: false, isSuccess: false }
   const [innChallenge, setInnChallenge] = useState(null);
 
   // Stats
@@ -115,7 +115,7 @@ export default function Home() {
     let startingHp = playerCurrentHp;
     if (startingHp <= 0) {
       startingHp = Math.round(stats.maxHp * 0.5);
-      alert("🩹 체력이 0이었던 모험가가 부활하여 50% 체력으로 전투에 진입합니다!");
+      alert("🩹 체력이 0이었던 모험가가 50% 체력을 회복하고 전투에 진입합니다!");
       setPlayer({ ...player, currentHp: startingHp });
     }
 
@@ -137,7 +137,68 @@ export default function Home() {
     });
   };
 
-  // Open Skill Quiz (구구단 스킬)
+  // Generate Math Problem (Normal Hunting: 1-digit Multiplication / Boss Battle: Decimal Math)
+  const generateBattleMathProblem = (isBoss, reqLevel = 10) => {
+    if (!isBoss) {
+      // Normal Mini-Monster: 1-digit Multiplication (구구단)
+      const n1 = Math.floor(Math.random() * 8) + 2;
+      const n2 = Math.floor(Math.random() * 8) + 2;
+      return {
+        questionText: `${n1} × ${n2}`,
+        answer: n1 * n2,
+      };
+    } else {
+      // Boss Raid: Decimal Math (소수의 나눗셈 & 곱셈)
+      // Level 10 Boss: 1-decimal place (e.g. 2.5 x 4 = 10, 6.4 / 2 = 3.2)
+      // Level 15 Boss: 2-decimal places (e.g. 1.25 x 4 = 5, 7.5 / 3 = 2.5)
+      // Level 20 Boss: 3-decimal places / Harder decimals (e.g. 0.125 x 8 = 1, 12.5 / 0.5 = 25)
+
+      const isDivision = Math.random() < 0.5;
+
+      if (reqLevel <= 10) {
+        // Lv 10 Boss (소수점 1자리)
+        if (isDivision) {
+          const ans = Math.round((Math.floor(Math.random() * 20 + 2) * 0.4) * 10) / 10;
+          const divisor = Math.floor(Math.random() * 4) + 2; // 2~5
+          const dividend = Math.round(ans * divisor * 10) / 10;
+          return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
+        } else {
+          const factor1 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.2) * 10) / 10; // e.g. 1.5, 2.5, 3.4
+          const factor2 = Math.floor(Math.random() * 8) + 2; // 2~9
+          const ans = Math.round(factor1 * factor2 * 100) / 100;
+          return { questionText: `${factor1} × ${factor2}`, answer: ans };
+        }
+      } else if (reqLevel <= 15) {
+        // Lv 15 Boss (소수점 2자리)
+        if (isDivision) {
+          const ans = Math.round((Math.floor(Math.random() * 20 + 2) * 0.25) * 100) / 100; // e.g. 1.25, 2.5
+          const divisor = [2, 4, 5][Math.floor(Math.random() * 3)];
+          const dividend = Math.round(ans * divisor * 100) / 100;
+          return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
+        } else {
+          const factor1 = Math.round((Math.floor(Math.random() * 20 + 1) * 0.25) * 100) / 100; // e.g. 1.25, 2.75
+          const factor2 = [2, 4, 8][Math.floor(Math.random() * 3)];
+          const ans = Math.round(factor1 * factor2 * 100) / 100;
+          return { questionText: `${factor1} × ${factor2}`, answer: ans };
+        }
+      } else {
+        // Lv 20 Boss (소수점 3자리 / 고난도 소수 연산)
+        if (isDivision) {
+          const divisor = [0.5, 0.25, 2, 4][Math.floor(Math.random() * 4)];
+          const ans = Math.round((Math.floor(Math.random() * 30 + 5) * 0.5) * 10) / 10;
+          const dividend = Math.round(ans * divisor * 1000) / 1000;
+          return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
+        } else {
+          const factor1 = Math.round((Math.floor(Math.random() * 15 + 1) * 0.125) * 1000) / 1000; // e.g. 0.125, 0.375
+          const factor2 = [4, 8, 16][Math.floor(Math.random() * 3)];
+          const ans = Math.round(factor1 * factor2 * 1000) / 1000;
+          return { questionText: `${factor1} × ${factor2}`, answer: ans };
+        }
+      }
+    }
+  };
+
+  // Open Skill Quiz Modal
   const handleOpenSkillQuiz = () => {
     if (!battle || battle.isOver) return;
     if (battle.skillCooldown > 0) {
@@ -145,38 +206,57 @@ export default function Home() {
       return;
     }
 
-    const n1 = Math.floor(Math.random() * 8) + 2;
-    const n2 = Math.floor(Math.random() * 8) + 2;
+    const problem = generateBattleMathProblem(battle.isBoss, battle.target.reqLevel);
     setQuizModal({
-      num1: n1,
-      num2: n2,
-      answer: n1 * n2,
+      actionType: "skill",
+      questionText: problem.questionText,
+      answer: problem.answer,
       userAnswer: "",
+      isBoss: battle.isBoss,
     });
   };
 
+  // Open Special Defense Quiz Modal
+  const handleOpenSpecialDefendQuiz = () => {
+    if (!battle || battle.isOver) return;
+    if (battle.specialDefCooldown > 0) {
+      alert(`⏳ 특수 방어 쿨타임 중입니다! (${battle.specialDefCooldown}턴 남음)`);
+      return;
+    }
+
+    const problem = generateBattleMathProblem(battle.isBoss, battle.target.reqLevel);
+    setQuizModal({
+      actionType: "specialDefend",
+      questionText: problem.questionText,
+      answer: problem.answer,
+      userAnswer: "",
+      isBoss: battle.isBoss,
+    });
+  };
+
+  // Submit Battle Math Quiz
   const handleQuizSubmit = (e) => {
     e.preventDefault();
     if (!quizModal) return;
 
-    const isCorrect = parseInt(quizModal.userAnswer, 10) === quizModal.answer;
+    const userVal = parseFloat(quizModal.userAnswer);
+    const isCorrect = Math.abs(userVal - quizModal.answer) < 0.001; // exact float comparison
     const currentQuiz = quizModal;
     setQuizModal(null);
 
-    executeTurn("skill", isCorrect, currentQuiz);
+    executeTurn(currentQuiz.actionType, isCorrect, currentQuiz);
   };
 
-  // Open Inn Rest Challenge (여관 구구단 10문제 도전!)
+  // Open Inn Rest Challenge
   const handleStartInnChallenge = () => {
     if (playerCurrentHp >= stats.maxHp) {
       alert("이미 체력이 가득 차있습니다!");
       return;
     }
 
-    // Generate 10 random multiplication questions
     const generatedQuestions = Array.from({ length: 10 }, () => {
-      const n1 = Math.floor(Math.random() * 8) + 2; // 2~9
-      const n2 = Math.floor(Math.random() * 8) + 2; // 2~9
+      const n1 = Math.floor(Math.random() * 8) + 2;
+      const n2 = Math.floor(Math.random() * 8) + 2;
       return { num1: n1, num2: n2, answer: n1 * n2 };
     });
 
@@ -201,7 +281,6 @@ export default function Home() {
     const nextIndex = innChallenge.currentIndex + 1;
 
     if (nextIndex >= 10) {
-      // Challenge Complete! (Need >= 6 correct)
       const passed = nextCorrect >= 6;
       setInnChallenge({
         ...innChallenge,
@@ -218,7 +297,6 @@ export default function Home() {
         handleSave(nextPlayer);
       }
     } else {
-      // Next Question
       setInnChallenge({
         ...innChallenge,
         currentIndex: nextIndex,
@@ -259,11 +337,11 @@ export default function Home() {
         currentEnemyHp = Math.max(0, battle.enemyHp - playerDamage);
         nextSkillCooldown = 2;
 
-        const text = `🎉 [구구단 정답! ${quizData.num1}×${quizData.num2}=${quizData.answer}] ✨ 1.5배 강력한 필살 스킬 발동! ${battle.target.name}에게 ${playerDamage} 데미지!`;
+        const text = `🎉 [정답! ${quizData.questionText} = ${quizData.answer}] ✨ 1.5배 강력한 필살 스킬 발동! ${battle.target.name}에게 ${playerDamage} 데미지!`;
         setBattleText(text);
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
       } else {
-        const text = `❌ [구구단 오답! 입력: ${quizData.userAnswer || "없음"}] 스킬 실패! 턴을 허비하고 몬스터에게 턴이 넘어갑니다.`;
+        const text = `❌ [오답! 문제: ${quizData.questionText} (정답: ${quizData.answer})] 스킬 실패! 턴을 허비하고 몬스터에게 턴이 넘어갑니다.`;
         setBattleText(text);
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
       }
@@ -273,16 +351,19 @@ export default function Home() {
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
     } else if (actionType === "specialDefend") {
-      if (battle.specialDefCooldown > 0) {
-        alert(`⏳ 특수 방어 쿨타임 중입니다! (${battle.specialDefCooldown}턴 남음)`);
-        return;
-      }
-      defenseMultiplier = 0.1;
       nextSpecialDefCooldown = 3;
 
-      const text = `🛡️✨ 특수 방어 발동! 이번 턴 피격 데미지 90% 차단! (0.1배)`;
-      setBattleText(text);
-      newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+      if (quizSuccess) {
+        defenseMultiplier = 0.1; // 90% reduction
+        const text = `🎉 [정답! ${quizData.questionText} = ${quizData.answer}] 🛡️✨ 특수 방어 성공! 이번 턴 피격 데미지 90% 차단! (0.1배)`;
+        setBattleText(text);
+        newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+      } else {
+        defenseMultiplier = 1.0; // Fail -> full damage
+        const text = `❌ [오답! 문제: ${quizData.questionText} (정답: ${quizData.answer})] 특수 방어 실패! 90% 차단에 실패하여 일반 피해를 입습니다.`;
+        setBattleText(text);
+        newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+      }
     } else if (actionType === "potion") {
       if (player.potions <= 0) {
         alert("포션이 부족합니다!");
@@ -343,7 +424,7 @@ export default function Home() {
 
       const nextPlayerHp = Math.max(0, currentPlayerHp - finalEnemyDamage);
       const enemyText = `💥 ${battle.target.name}의 반격! 모험가에게 ${finalEnemyDamage} 데미지! ${
-        defenseMultiplier === 0.1 ? "(특수 방어: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
+        defenseMultiplier === 0.1 ? "(특수 방어 성공: 데미지 90% 차단!)" : defenseMultiplier === 0.5 ? "(일반 방어: 데미지 50% 감쇄)" : ""
       }`;
       
       setBattleText(enemyText);
@@ -424,7 +505,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">여관 10문제 구구단 휴식 테스트 연동</p>
+            <p className="text-xs text-slate-400">보스전 소수의 나눗셈/곱셈 퀴즈 연동</p>
           </div>
         </div>
 
@@ -576,7 +657,7 @@ export default function Home() {
                 activeTab === "hunt" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
-              <span>⚔️</span> 사냥터 (연속 HP)
+              <span>⚔️</span> 사냥터 (일반 구구단)
             </button>
             <button
               onClick={() => setActiveTab("shop")}
@@ -592,7 +673,7 @@ export default function Home() {
                 activeTab === "boss" ? "bg-rose-600 text-white shadow-md animate-pulse" : "text-rose-400 hover:text-rose-300 hover:bg-slate-800/50"
               }`}
             >
-              <span>👑</span> 보스 레이드
+              <span>👑</span> 보스 레이드 (소수 연산)
             </button>
           </div>
 
@@ -600,7 +681,7 @@ export default function Home() {
           {activeTab === "hunt" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
-              <p className="text-xs text-slate-400">마을 여관에서 구구단 10문제 중 6개를 맞히면 체력이 100% 회복됩니다!</p>
+              <p className="text-xs text-slate-400">일반 사냥터에서는 스킬/방어 시 1자리 구구단 문제가 출제됩니다.</p>
 
               <div className="space-y-4">
                 {HUNTING_GROUNDS.map((zone) => {
@@ -722,11 +803,13 @@ export default function Home() {
             </div>
           )}
 
-          {/* TAB 3: BOSS */}
+          {/* TAB 3: BOSS (소수의 나눗셈 & 곱셈 퀴즈!) */}
           {activeTab === "boss" && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전</h3>
-              <p className="text-xs text-slate-400">레벨 10, 15, 20에 도전하는 보스 레이드 (7타 공격 / 4타 피격 밸런스)</p>
+              <h3 className="font-extrabold text-xl text-rose-400">👑 보스 토벌전 (소수 연산 퀴즈!)</h3>
+              <p className="text-xs text-slate-400">
+                🔥 보스전에서는 필살기와 특수방어 시 <span className="text-amber-400 font-bold">소수의 나눗셈 & 곱셈 퀴즈</span>가 출제됩니다!
+              </p>
 
               <div className="space-y-4">
                 {BOSSES.map((boss) => {
@@ -739,6 +822,9 @@ export default function Home() {
                         <div>
                           <h4 className="font-black text-lg text-white">{boss.name} <span className="text-xs text-rose-300">Lv.{boss.reqLevel}</span></h4>
                           <p className="text-xs text-slate-300 mt-0.5">{boss.desc}</p>
+                          <p className="text-[11px] text-amber-400 font-semibold mt-1">
+                            📐 보스 난이도 퀴즈: {boss.reqLevel === 10 ? "소수점 1자리 연산" : boss.reqLevel === 15 ? "소수점 2자리 연산" : "소수점 3자리 / 고난도 소수 연산"}
+                          </p>
                         </div>
                       </div>
                       <button disabled={isLocked} onClick={() => startBattle(boss, true)} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 text-white font-extrabold text-xs rounded-xl">
@@ -759,7 +845,6 @@ export default function Home() {
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-4 border-emerald-500 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in">
             
-            {/* Header */}
             <div className="text-center">
               <div className="inline-block p-3 rounded-full bg-emerald-500/20 text-emerald-400 text-3xl mb-2">
                 🍺
@@ -770,7 +855,6 @@ export default function Home() {
 
             {!innChallenge.isComplete ? (
               <div className="space-y-4">
-                {/* Progress & Current Score */}
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span className="text-emerald-400">문제 {innChallenge.currentIndex + 1} / 10</span>
                   <span className="text-amber-400">현재 맞힌 개수: {innChallenge.correctCount}개 (목표: 6개+)</span>
@@ -779,12 +863,10 @@ export default function Home() {
                   <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${((innChallenge.currentIndex) / 10) * 100}%` }}></div>
                 </div>
 
-                {/* Current Math Question */}
                 <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-4xl font-black text-emerald-400 text-center tracking-wider font-mono shadow-inner">
                   {innChallenge.questions[innChallenge.currentIndex].num1} × {innChallenge.questions[innChallenge.currentIndex].num2} = ?
                 </div>
 
-                {/* Input Form */}
                 <form onSubmit={handleInnQuestionSubmit} className="space-y-3">
                   <input
                     type="number"
@@ -812,7 +894,6 @@ export default function Home() {
                 </form>
               </div>
             ) : (
-              /* Challenge Result Screen */
               <div className="text-center space-y-4 py-2">
                 {innChallenge.isSuccess ? (
                   <div className="space-y-3">
@@ -851,27 +932,33 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🔴 MULTIPLICATION QUIZ MODAL FOR SKILL */}
+      {/* 🔴 BATTLE MATH QUIZ MODAL (Normal: 1-digit Multiplication / Boss: Decimal Math!) */}
       {quizModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-4 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5">
-            <div className="inline-block p-3 rounded-full bg-amber-500/20 text-amber-400 text-3xl mb-1">
-              ✨
+          <div className={`bg-slate-900 border-4 ${quizModal.isBoss ? "border-rose-500 shadow-rose-500/20" : "border-amber-500"} rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in fade-in`}>
+            <div className={`inline-block p-3 rounded-full ${quizModal.isBoss ? "bg-rose-500/20 text-rose-400" : "bg-amber-500/20 text-amber-400"} text-3xl mb-1`}>
+              {quizModal.actionType === "skill" ? "✨" : "🛡️✨"}
             </div>
             <div>
-              <h3 className="text-xl font-black text-white">필살기 발동! 구구단 퀴즈</h3>
-              <p className="text-xs text-slate-400 mt-1">정답을 맞히면 1.5배 강력한 스킬이 발동합니다!</p>
+              <h3 className="text-xl font-black text-white">
+                {quizModal.actionType === "skill" ? "필살기 발동 연산 퀴즈" : "특수 방어 발동 연산 퀴즈"}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                {quizModal.isBoss ? "🔥 [보스전 전용] 소수 연산 정답 시 기술이 성공합니다!" : "정답을 맞히면 기술이 성공적으로 발동합니다!"}
+              </p>
             </div>
 
-            <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 text-3xl font-black text-amber-400 tracking-wider font-mono">
-              {quizModal.num1} × {quizModal.num2} = ?
+            {/* Question Text */}
+            <div className={`bg-slate-800 p-4 rounded-2xl border border-slate-700 text-3xl font-black ${quizModal.isBoss ? "text-rose-400" : "text-amber-400"} tracking-wider font-mono`}>
+              {quizModal.questionText} = ?
             </div>
 
             <form onSubmit={handleQuizSubmit} className="space-y-3">
               <input
                 type="number"
+                step="any"
                 autoFocus
-                placeholder="정답 입력"
+                placeholder="정답 입력 (소수/자연수)"
                 value={quizModal.userAnswer}
                 onChange={(e) => setQuizModal({ ...quizModal, userAnswer: e.target.value })}
                 className="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-xl py-3 px-4 text-center font-bold text-xl text-white outline-none"
@@ -886,9 +973,9 @@ export default function Home() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg"
+                  className={`flex-1 py-3 rounded-xl ${quizModal.isBoss ? "bg-rose-600 hover:bg-rose-500 text-white" : "bg-amber-500 hover:bg-amber-400 text-slate-950"} font-black text-xs transition shadow-lg`}
                 >
-                  스킬 시전!
+                  시전하기!
                 </button>
               </div>
             </form>
@@ -986,7 +1073,7 @@ export default function Home() {
 
                 <button
                   disabled={battle.specialDefCooldown > 0}
-                  onClick={() => executeTurn("specialDefend")}
+                  onClick={handleOpenSpecialDefendQuiz}
                   className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:border-slate-800 disabled:text-slate-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-cyan-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
                 >
                   <span>🛡️✨ 특수 방어</span>
