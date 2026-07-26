@@ -142,61 +142,73 @@ export default function Home() {
     });
   };
 
-  // Generate Math Problem for Battle
-  const generateBattleMathProblem = (isBoss, reqLevel = 10) => {
-    const isHighLevelPlayer = player.level >= 15;
+  // 🎲 TRULY RANDOM ELEMENTARY SCHOOL MATH PROBLEM GENERATOR (초등 수학 전 과정 완전 무작위 출제)
+  const generateBattleMathProblem = () => {
+    // 7가지 초등 수학 유형 중 무작위 선택
+    // 0: 구구단 및 자연수 곱셈
+    // 1: 자연수 나눗셈
+    // 2: 자연수 덧셈 / 뺄셈
+    // 3: 소수의 곱셈
+    // 4: 소수의 나눗셈
+    // 5: 소수의 덧셈
+    // 6: 소수의 뺄셈
+    const type = Math.floor(Math.random() * 7);
 
-    if (!isBoss) {
-      if (isHighLevelPlayer || reqLevel >= 15) {
-        const decimalNum = Math.round((Math.floor(Math.random() * 35 + 5) * 0.2) * 10) / 10;
-        const naturalNum = Math.floor(Math.random() * 8) + 2;
-        const ans = Math.round(decimalNum * naturalNum * 100) / 100;
-        return { questionText: `${decimalNum} × ${naturalNum}`, answer: ans };
+    if (type === 0) {
+      // 구구단 및 자연수 곱셈 (예: 7 × 8, 14 × 6)
+      const n1 = Math.floor(Math.random() * 15) + 2;
+      const n2 = Math.floor(Math.random() * 9) + 2;
+      return { questionText: `${n1} × ${n2}`, answer: n1 * n2, typeName: "자연수 곱셈" };
+    } else if (type === 1) {
+      // 자연수 나눗셈 (예: 56 ÷ 7, 96 ÷ 8)
+      const ans = Math.floor(Math.random() * 12) + 2;
+      const divisor = Math.floor(Math.random() * 9) + 2;
+      const dividend = ans * divisor;
+      return { questionText: `${dividend} ÷ ${divisor}`, answer: ans, typeName: "자연수 나눗셈" };
+    } else if (type === 2) {
+      // 자연수 덧셈 / 뺄셈 (예: 145 + 238, 500 - 176)
+      const isAdd = Math.random() < 0.5;
+      if (isAdd) {
+        const n1 = Math.floor(Math.random() * 300) + 15;
+        const n2 = Math.floor(Math.random() * 300) + 15;
+        return { questionText: `${n1} + ${n2}`, answer: n1 + n2, typeName: "자연수 덧셈" };
       } else {
-        const n1 = Math.floor(Math.random() * 8) + 2;
-        const n2 = Math.floor(Math.random() * 8) + 2;
-        return { questionText: `${n1} × ${n2}`, answer: n1 * n2 };
+        const n1 = Math.floor(Math.random() * 400) + 100;
+        const n2 = Math.floor(Math.random() * (n1 - 10)) + 10;
+        return { questionText: `${n1} - ${n2}`, answer: n1 - n2, typeName: "자연수 뺄셈" };
       }
+    } else if (type === 3) {
+      // 소수의 곱셈 (예: 2.5 × 4, 0.25 × 8, 1.2 × 3)
+      const factor1 = Math.round((Math.floor(Math.random() * 40 + 2) * 0.25) * 100) / 100;
+      const factor2 = [2, 4, 5, 8, 10][Math.floor(Math.random() * 5)];
+      const ans = Math.round(factor1 * factor2 * 100) / 100;
+      return { questionText: `${factor1} × ${factor2}`, answer: ans, typeName: "소수 곱셈" };
+    } else if (type === 4) {
+      // 소수의 나눗셈 (예: 7.2 ÷ 4, 0.75 ÷ 3, 4.8 ÷ 0.6)
+      const isDecimalDivisor = Math.random() < 0.3;
+      if (isDecimalDivisor) {
+        const ans = Math.floor(Math.random() * 15) + 2;
+        const divisor = [0.2, 0.4, 0.5, 0.8][Math.floor(Math.random() * 4)];
+        const dividend = Math.round(ans * divisor * 10) / 10;
+        return { questionText: `${dividend} ÷ ${divisor}`, answer: ans, typeName: "소수 나눗셈" };
+      } else {
+        const ans = Math.round((Math.floor(Math.random() * 25 + 2) * 0.2) * 10) / 10;
+        const divisor = Math.floor(Math.random() * 5) + 2;
+        const dividend = Math.round(ans * divisor * 10) / 10;
+        return { questionText: `${dividend} ÷ ${divisor}`, answer: ans, typeName: "소수 나눗셈" };
+      }
+    } else if (type === 5) {
+      // 소수의 덧셈 (예: 3.4 + 2.8, 1.25 + 2.45)
+      const n1 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.1) * 10) / 10;
+      const n2 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.1) * 10) / 10;
+      const ans = Math.round((n1 + n2) * 10) / 10;
+      return { questionText: `${n1} + ${n2}`, answer: ans, typeName: "소수 덧셈" };
     } else {
-      const isDivision = Math.random() < 0.5;
-
-      if (reqLevel <= 10) {
-        if (isDivision) {
-          const ans = Math.round((Math.floor(Math.random() * 20 + 2) * 0.4) * 10) / 10;
-          const divisor = Math.floor(Math.random() * 4) + 2;
-          const dividend = Math.round(ans * divisor * 10) / 10;
-          return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
-        } else {
-          const factor1 = Math.round((Math.floor(Math.random() * 45 + 5) * 0.2) * 10) / 10;
-          const factor2 = Math.floor(Math.random() * 8) + 2;
-          const ans = Math.round(factor1 * factor2 * 100) / 100;
-          return { questionText: `${factor1} × ${factor2}`, answer: ans };
-        }
-      } else if (reqLevel <= 15) {
-        if (isDivision) {
-          const ans = Math.round((Math.floor(Math.random() * 20 + 2) * 0.25) * 100) / 100;
-          const divisor = [2, 4, 5][Math.floor(Math.random() * 3)];
-          const dividend = Math.round(ans * divisor * 100) / 100;
-          return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
-        } else {
-          const factor1 = Math.round((Math.floor(Math.random() * 20 + 1) * 0.25) * 100) / 100;
-          const factor2 = [2, 4, 8][Math.floor(Math.random() * 3)];
-          const ans = Math.round(factor1 * factor2 * 100) / 100;
-          return { questionText: `${factor1} × ${factor2}`, answer: ans };
-        }
-      } else {
-        if (isDivision) {
-          const divisor = [0.5, 0.25, 2, 4][Math.floor(Math.random() * 4)];
-          const ans = Math.round((Math.floor(Math.random() * 30 + 5) * 0.5) * 10) / 10;
-          const dividend = Math.round(ans * divisor * 1000) / 1000;
-          return { questionText: `${dividend} ÷ ${divisor}`, answer: ans };
-        } else {
-          const factor1 = Math.round((Math.floor(Math.random() * 15 + 1) * 0.125) * 1000) / 1000;
-          const factor2 = [4, 8, 16][Math.floor(Math.random() * 3)];
-          const ans = Math.round(factor1 * factor2 * 1000) / 1000;
-          return { questionText: `${factor1} × ${factor2}`, answer: ans };
-        }
-      }
+      // 소수의 뺄셈 (예: 7.5 - 3.2, 5.0 - 1.8)
+      const n1 = Math.round((Math.floor(Math.random() * 50 + 20) * 0.1) * 10) / 10;
+      const n2 = Math.round((Math.floor(Math.random() * (n1 * 10 - 5)) * 0.1) * 10) / 10;
+      const ans = Math.round((n1 - n2) * 10) / 10;
+      return { questionText: `${n1} - ${n2}`, answer: ans, typeName: "소수 뺄셈" };
     }
   };
 
@@ -208,7 +220,7 @@ export default function Home() {
       return;
     }
 
-    const problem = generateBattleMathProblem(battle.isBoss, battle.target.reqLevel);
+    const problem = generateBattleMathProblem();
     setQuizModal({
       actionType: "skill",
       questionText: problem.questionText,
@@ -226,7 +238,7 @@ export default function Home() {
       return;
     }
 
-    const problem = generateBattleMathProblem(battle.isBoss, battle.target.reqLevel);
+    const problem = generateBattleMathProblem();
     setQuizModal({
       actionType: "specialDefend",
       questionText: problem.questionText,
@@ -251,7 +263,7 @@ export default function Home() {
   // Quiz Flee (50% Probability on Correct Answer)
   const handleOpenQuizFlee = () => {
     setFleeChoiceModal(false);
-    const problem = generateBattleMathProblem(battle.isBoss, battle.target.reqLevel);
+    const problem = generateBattleMathProblem();
     setQuizModal({
       actionType: "quizFlee",
       questionText: problem.questionText,
@@ -274,7 +286,7 @@ export default function Home() {
     executeTurn(currentQuiz.actionType, isCorrect, currentQuiz);
   };
 
-  // Generate Step-by-Step Long Division Problems by Level
+  // Generate Step-by-Step Long Division Problems by Level for Inn Rest
   const generateInnLongDivisionQuestion = (level) => {
     if (level <= 5) {
       const options = [
@@ -504,7 +516,6 @@ export default function Home() {
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
       setPlayer({ ...player, potions: player.potions - 1, currentHp: currentPlayerHp });
     } else if (actionType === "generalFlee") {
-      // General Flee: 30% Probability Success (0.3)
       const fleeSuccess = Math.random() < 0.3;
       if (fleeSuccess) {
         const text = `🏃 [30% 확률 성공!] 도망치기에 성공하여 안전하게 마을로 탈출했습니다!`;
@@ -524,7 +535,6 @@ export default function Home() {
         newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
       }
     } else if (actionType === "quizFlee") {
-      // Quiz Flee: Must answer Quiz correctly -> THEN 50% Probability Success (0.5)
       if (quizSuccess) {
         const fleeSuccess = Math.random() < 0.5;
         if (fleeSuccess) {
@@ -719,7 +729,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">도망치기 커맨드 (30% 일반 / 50% 퀴즈) 연동</p>
+            <p className="text-xs text-slate-400">🎲 초등 수학 전 과정 완전 무작위 퀴즈 연동</p>
           </div>
         </div>
 
@@ -871,7 +881,7 @@ export default function Home() {
                 activeTab === "hunt" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
-              <span>⚔️</span> 사냥터 {player.level >= 15 ? "(소수×자연수)" : "(구구단)"}
+              <span>⚔️</span> 사냥터
             </button>
             <button
               onClick={() => setActiveTab("shop")}
@@ -896,9 +906,7 @@ export default function Home() {
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <h3 className="font-bold text-lg text-white">🌲 사냥터 (미니 몬스터)</h3>
               <p className="text-xs text-slate-400">
-                {player.level >= 15
-                  ? "📐 Lv.15 달성! 이제 사냥터 스킬/특수방어 시 [소수 × 자연수] 연산이 출제됩니다!"
-                  : "일반 몬스터 사냥 시 스킬/방어 시 1자리 구구단 문제가 출제됩니다. (사망 시 경험치 20% 감소)"}
+                🎲 전투 스킬/방어/도망 시 초등 수학 전 과정(덧셈, 뺄셈, 곱셈, 나눗셈, 소수 연산)이 완전 무작위 출제됩니다!
               </p>
 
               <div className="space-y-4">
@@ -1251,7 +1259,7 @@ export default function Home() {
                 {quizModal.actionType === "skill" ? "필살기 발동 연산 퀴즈" : quizModal.actionType === "specialDefend" ? "특수 방어 발동 연산 퀴즈" : "도망치기 연산 퀴즈 (정답 시 50% 성공)"}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
-                {quizModal.actionType === "quizFlee" ? "퀴즈를 맞히면 50% 확률로 도망치기에 성공합니다!" : quizModal.isBoss || player.level >= 15 ? "📐 정답을 입력하여 기술을 성공시키세요!" : "정답을 맞히면 기술이 성공적으로 발동합니다!"}
+                🎲 초등 수학 과정 무작위 출제: 정답을 입력하세요!
               </p>
             </div>
 
@@ -1358,7 +1366,7 @@ export default function Home() {
               <span className="text-xs font-semibold text-amber-400 animate-bounce">▼</span>
             </div>
 
-            {/* 3. BOTTOM COMMAND BUTTONS (6-COMMAND POKÉMON GRID) */}
+            {/* 3. BOTTOM COMMAND BUTTONS */}
             {!battle.isOver ? (
               <div className="bg-slate-800 p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <button
