@@ -33,20 +33,13 @@ export default function Home() {
   const [saveNotification, setSaveNotification] = useState("");
   const [hitEffect, setHitEffect] = useState(null);
 
-  // Math Quiz Modal State for Battle
+  // Math Quiz Modal State for Battle (Skill, SpecialDefend, QuizFlee)
   const [quizModal, setQuizModal] = useState(null);
 
-  // 🍺 Step-by-Step Decimal Long Division Challenge State for Inn Rest
-  // {
-  //   questions: [{ divisor, dividend, steps: [...] }],
-  //   currentQIndex: 0,
-  //   currentStepIndex: 0,
-  //   userStepInput: "",
-  //   completedSteps: [],
-  //   isComplete: false,
-  //   isSuccess: false,
-  //   feedbackMsg: ""
-  // }
+  // Flee Choice Modal State (General Flee 30% vs Quiz Flee 50%)
+  const [fleeChoiceModal, setFleeChoiceModal] = useState(false);
+
+  // Step-by-Step Long Division Challenge State for Inn Rest
   const [innChallenge, setInnChallenge] = useState(null);
 
   // Stats
@@ -79,7 +72,7 @@ export default function Home() {
     setTimeout(() => setSaveNotification(""), 3000);
   };
 
-  // Level Up Check (초반 10레벨까지속성 레벨업!)
+  // Level Up Check
   const checkLevelUp = (currentXp, currentLevel) => {
     let newXp = currentXp;
     let newLevel = currentLevel;
@@ -243,6 +236,31 @@ export default function Home() {
     });
   };
 
+  // Open Flee Choice Modal
+  const handleOpenFleeChoice = () => {
+    if (!battle || battle.isOver) return;
+    setFleeChoiceModal(true);
+  };
+
+  // General Flee (30% Probability)
+  const handleGeneralFlee = () => {
+    setFleeChoiceModal(false);
+    executeTurn("generalFlee");
+  };
+
+  // Quiz Flee (50% Probability on Correct Answer)
+  const handleOpenQuizFlee = () => {
+    setFleeChoiceModal(false);
+    const problem = generateBattleMathProblem(battle.isBoss, battle.target.reqLevel);
+    setQuizModal({
+      actionType: "quizFlee",
+      questionText: problem.questionText,
+      answer: problem.answer,
+      userAnswer: "",
+      isBoss: battle.isBoss,
+    });
+  };
+
   // Submit Battle Math Quiz
   const handleQuizSubmit = (e) => {
     e.preventDefault();
@@ -256,14 +274,9 @@ export default function Home() {
     executeTurn(currentQuiz.actionType, isCorrect, currentQuiz);
   };
 
-  // 🍺 Generate Step-by-Step Long Division Problems by Level
+  // Generate Step-by-Step Long Division Problems by Level
   const generateInnLongDivisionQuestion = (level) => {
-    let divisor = 4;
-    let quotientStr = "0.18";
-    let dividend = 0.72;
-
     if (level <= 5) {
-      // Lv 1-5: Easy 1-decimal place division (e.g. 2 ) 0.8 -> 0.4)
       const options = [
         { divisor: 2, dividend: 0.8, quotientStr: "0.4", d1: 0, d2: 8, q1: 0, q2: 4, rem1: 8 },
         { divisor: 3, dividend: 0.9, quotientStr: "0.3", d1: 0, d2: 9, q1: 0, q2: 3, rem1: 9 },
@@ -281,7 +294,6 @@ export default function Home() {
         ],
       };
     } else if (level <= 10) {
-      // Lv 6-10: 2-decimal places division (e.g. 4 ) 0.72 -> 0.18, matching image!)
       const options = [
         { divisor: 4, dividend: 0.72, quotientStr: "0.18", sub1: 4, rem1: 32, q1: 1, q2: 8 },
         { divisor: 3, dividend: 0.75, quotientStr: "0.25", sub1: 6, rem1: 15, q1: 2, q2: 5 },
@@ -302,7 +314,6 @@ export default function Home() {
         ],
       };
     } else if (level <= 15) {
-      // Lv 11-15: 2-decimal places with carrying (e.g. 6 ) 1.44 -> 0.24, 5 ) 3.75 -> 0.75)
       const options = [
         { divisor: 6, dividend: 1.44, quotientStr: "0.24", sub1: 12, rem1: 24, q1: 2, q2: 4 },
         { divisor: 5, dividend: 3.75, quotientStr: "0.75", sub1: 35, rem1: 25, q1: 7, q2: 5 },
@@ -323,7 +334,6 @@ export default function Home() {
         ],
       };
     } else {
-      // Lv 16-20: Harder 2-decimal places division (e.g. 4 ) 3.12 -> 0.78, 8 ) 3.36 -> 0.42)
       const options = [
         { divisor: 4, dividend: 3.12, quotientStr: "0.78", sub1: 28, rem1: 32, q1: 7, q2: 8 },
         { divisor: 8, dividend: 3.36, quotientStr: "0.42", sub1: 32, rem1: 16, q1: 4, q2: 2 },
@@ -347,8 +357,6 @@ export default function Home() {
   };
 
   // Open Inn Rest Challenge
-  // - Level <= 10: 1 Question!
-  // - Level > 10: 2 Questions!
   const handleStartInnChallenge = () => {
     if (playerCurrentHp >= stats.maxHp) {
       alert("이미 체력이 가득 차있습니다!");
@@ -363,7 +371,7 @@ export default function Home() {
       currentQIndex: 0,
       currentStepIndex: 0,
       userStepInput: "",
-      completedStepInputs: [], // Array of inputs entered for steps in current question
+      completedStepInputs: [],
       isComplete: false,
       isSuccess: false,
       feedbackMsg: questions[0].steps[0].prompt,
@@ -380,15 +388,12 @@ export default function Home() {
 
     const inputVal = innChallenge.userStepInput.trim();
     if (inputVal === currentStep.targetInput) {
-      // CORRECT STEP INPUT!
       const newCompleted = [...innChallenge.completedStepInputs, inputVal];
       const nextStepIdx = innChallenge.currentStepIndex + 1;
 
       if (nextStepIdx >= currentQ.steps.length) {
-        // Question Completed!
         const nextQIdx = innChallenge.currentQIndex + 1;
         if (nextQIdx >= innChallenge.questions.length) {
-          // ALL Questions Completed Successfully!
           setInnChallenge({
             ...innChallenge,
             completedStepInputs: newCompleted,
@@ -401,7 +406,6 @@ export default function Home() {
           setPlayer(nextPlayer);
           handleSave(nextPlayer);
         } else {
-          // Advance to Next Question
           const nextQ = innChallenge.questions[nextQIdx];
           setInnChallenge({
             ...innChallenge,
@@ -413,7 +417,6 @@ export default function Home() {
           });
         }
       } else {
-        // Advance to Next Step in Same Question
         const nextStep = currentQ.steps[nextStepIdx];
         setInnChallenge({
           ...innChallenge,
@@ -424,7 +427,6 @@ export default function Home() {
         });
       }
     } else {
-      // WRONG STEP INPUT
       setInnChallenge({
         ...innChallenge,
         feedbackMsg: `❌ 아쉽네요! 힌트: ${currentStep.hint}\n다시 한 번 입력해볼까요? (${currentStep.prompt})`,
@@ -501,6 +503,52 @@ export default function Home() {
       setBattleText(text);
       newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
       setPlayer({ ...player, potions: player.potions - 1, currentHp: currentPlayerHp });
+    } else if (actionType === "generalFlee") {
+      // General Flee: 30% Probability Success (0.3)
+      const fleeSuccess = Math.random() < 0.3;
+      if (fleeSuccess) {
+        const text = `🏃 [30% 확률 성공!] 도망치기에 성공하여 안전하게 마을로 탈출했습니다!`;
+        setBattleText(text);
+        newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+
+        setBattle({
+          ...battle,
+          logs: newLogs,
+          isOver: true,
+          isWin: false,
+        });
+        return;
+      } else {
+        const text = `❌ [30% 확률 실패!] 도망치기에 실패하여 발이 묶였습니다! 턴이 넘어갑니다.`;
+        setBattleText(text);
+        newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+      }
+    } else if (actionType === "quizFlee") {
+      // Quiz Flee: Must answer Quiz correctly -> THEN 50% Probability Success (0.5)
+      if (quizSuccess) {
+        const fleeSuccess = Math.random() < 0.5;
+        if (fleeSuccess) {
+          const text = `🎉 [정답! ${quizData.questionText} = ${quizData.answer}] 🏃 [50% 확률 성공!] 도망치기에 성공하여 무사히 탈출했습니다!`;
+          setBattleText(text);
+          newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+
+          setBattle({
+            ...battle,
+            logs: newLogs,
+            isOver: true,
+            isWin: false,
+          });
+          return;
+        } else {
+          const text = `❌ [정답! ${quizData.questionText} = ${quizData.answer}] 그러나 도망치기 확률(50%) 실패로 발이 묶였습니다! 턴이 넘어갑니다.`;
+          setBattleText(text);
+          newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+        }
+      } else {
+        const text = `❌ [퀴즈 오답! 문제: ${quizData.questionText}] 도망치기에 실패했습니다! 턴이 넘어갑니다.`;
+        setBattleText(text);
+        newLogs.unshift(`[Turn ${battle.turn}] ${text}`);
+      }
     }
 
     // Check Enemy Defeat
@@ -671,7 +719,7 @@ export default function Home() {
             <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200 bg-clip-text text-transparent">
               ainew - 포켓몬 스타일 RPG
             </h1>
-            <p className="text-xs text-slate-400">여관 소수의 나눗셈 단계별 세로셈 학습 연동</p>
+            <p className="text-xs text-slate-400">도망치기 커맨드 (30% 일반 / 50% 퀴즈) 연동</p>
           </div>
         </div>
 
@@ -1010,12 +1058,51 @@ export default function Home() {
         </section>
       </main>
 
+      {/* 🏃 FLEE CHOICE MODAL */}
+      {fleeChoiceModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-4 border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in fade-in select-none">
+            <div className="inline-block p-3 rounded-full bg-amber-500/20 text-amber-400 text-3xl mb-1">
+              🏃
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-white">전투 탈출 선택</h3>
+              <p className="text-xs text-slate-400 mt-1">도망치기 방법을 선택하세요! (실패 시 턴이 넘어갑니다)</p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleGeneralFlee}
+                className="w-full py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border-2 border-slate-600 text-white font-extrabold text-sm transition flex items-center justify-between"
+              >
+                <span>🎲 일반 도망치기</span>
+                <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-lg border border-amber-500/30">30% 확률 성공</span>
+              </button>
+
+              <button
+                onClick={handleOpenQuizFlee}
+                className="w-full py-3.5 px-4 rounded-2xl bg-cyan-950/80 hover:bg-cyan-900/80 border-2 border-cyan-500/50 text-cyan-200 font-extrabold text-sm transition flex items-center justify-between"
+              >
+                <span>📐 연산 퀴즈 풀고 도망치기</span>
+                <span className="text-xs bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-lg border border-cyan-500/30">정답 시 50% 성공</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setFleeChoiceModal(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-950 text-slate-400 text-xs font-bold hover:text-white transition"
+            >
+              취소 (전투로 돌아가기)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 🔴 INN REST: STEP-BY-STEP DECIMAL LONG DIVISION INTERACTIVE MODAL */}
       {innChallenge && (
         <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-4 border-cyan-500 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in select-none">
             
-            {/* Modal Header */}
             <div className="text-center">
               <div className="inline-block p-3 rounded-full bg-cyan-500/20 text-cyan-400 text-3xl mb-2">
                 📐
@@ -1029,7 +1116,6 @@ export default function Home() {
             {!innChallenge.isComplete ? (
               <div className="space-y-4">
                 
-                {/* Progress Header */}
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span className="text-cyan-400">문제 {innChallenge.currentQIndex + 1} / {innChallenge.questions.length}</span>
                   <span className="text-amber-400">
@@ -1037,13 +1123,10 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* VISUAL LONG DIVISION BOARD (MATCHING USER IMAGE STYLE) */}
                 <div className="bg-slate-950 p-6 rounded-2xl border-2 border-slate-800 font-mono text-slate-100 space-y-4 shadow-inner">
                   
-                  {/* Step-by-step long division visual display */}
                   <div className="flex flex-col items-center justify-center">
                     
-                    {/* Quotient line & Inputs */}
                     <div className="flex items-center gap-1 text-2xl font-black tracking-widest text-cyan-400 border-b-4 border-slate-400 pb-1 px-4">
                       <span className="text-slate-500 text-sm mr-6">몫 ➔</span>
                       {innChallenge.questions[innChallenge.currentQIndex].steps.map((step, idx) => {
@@ -1076,7 +1159,6 @@ export default function Home() {
                       })}
                     </div>
 
-                    {/* Dividend line: divisor ) dividend */}
                     <div className="flex items-center gap-3 text-3xl font-black tracking-widest mt-2">
                       <span className="text-amber-400 font-bold text-2xl">
                         {innChallenge.questions[innChallenge.currentQIndex].divisor}
@@ -1091,7 +1173,6 @@ export default function Home() {
 
                 </div>
 
-                {/* FRIENDLY INSTRUCTION BANNER (파란색 채워넣기 친절한 멘트!) */}
                 <div className="bg-cyan-950/60 border-2 border-cyan-500/40 p-4 rounded-2xl space-y-1">
                   <p className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
                     💬 선생님의 친절한 단계별 가이드:
@@ -1101,7 +1182,6 @@ export default function Home() {
                   </p>
                 </div>
 
-                {/* BLUE INPUT FORM (파란색 채워넣기 입력창) */}
                 <form onSubmit={handleInnStepSubmit} className="space-y-3">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-cyan-400">
@@ -1136,7 +1216,6 @@ export default function Home() {
 
               </div>
             ) : (
-              /* Success Screen */
               <div className="text-center space-y-4 py-3">
                 <div className="text-6xl">🎉</div>
                 <h4 className="text-2xl font-black text-cyan-400">여관 휴식 성공!</h4>
@@ -1165,14 +1244,14 @@ export default function Home() {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className={`bg-slate-900 border-4 ${quizModal.isBoss ? "border-rose-500 shadow-rose-500/20" : "border-amber-500"} rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in fade-in`}>
             <div className={`inline-block p-3 rounded-full ${quizModal.isBoss ? "bg-rose-500/20 text-rose-400" : "bg-amber-500/20 text-amber-400"} text-3xl mb-1`}>
-              {quizModal.actionType === "skill" ? "✨" : "🛡️✨"}
+              {quizModal.actionType === "skill" ? "✨" : quizModal.actionType === "specialDefend" ? "🛡️✨" : "🏃"}
             </div>
             <div>
               <h3 className="text-xl font-black text-white">
-                {quizModal.actionType === "skill" ? "필살기 발동 연산 퀴즈" : "특수 방어 발동 연산 퀴즈"}
+                {quizModal.actionType === "skill" ? "필살기 발동 연산 퀴즈" : quizModal.actionType === "specialDefend" ? "특수 방어 발동 연산 퀴즈" : "도망치기 연산 퀴즈 (정답 시 50% 성공)"}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
-                {quizModal.isBoss || player.level >= 15 ? "📐 정답을 입력하여 기술을 성공시키세요!" : "정답을 맞히면 기술이 성공적으로 발동합니다!"}
+                {quizModal.actionType === "quizFlee" ? "퀴즈를 맞히면 50% 확률로 도망치기에 성공합니다!" : quizModal.isBoss || player.level >= 15 ? "📐 정답을 입력하여 기술을 성공시키세요!" : "정답을 맞히면 기술이 성공적으로 발동합니다!"}
               </p>
             </div>
 
@@ -1279,7 +1358,7 @@ export default function Home() {
               <span className="text-xs font-semibold text-amber-400 animate-bounce">▼</span>
             </div>
 
-            {/* 3. BOTTOM COMMAND BUTTONS */}
+            {/* 3. BOTTOM COMMAND BUTTONS (6-COMMAND POKÉMON GRID) */}
             {!battle.isOver ? (
               <div className="bg-slate-800 p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <button
@@ -1322,10 +1401,18 @@ export default function Home() {
 
                 <button
                   onClick={() => executeTurn("potion")}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-emerald-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs sm:col-span-2"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-emerald-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
                 >
-                  <span>🧪 포션 (ITEM)</span>
-                  <span className="text-[10px] bg-emerald-800 px-2 py-0.5 rounded text-emerald-200">{player.potions}개 (+100 HP)</span>
+                  <span>🧪 포션</span>
+                  <span className="text-[10px] bg-emerald-800 px-1.5 py-0.5 rounded text-emerald-200">{player.potions}개</span>
+                </button>
+
+                <button
+                  onClick={handleOpenFleeChoice}
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-black py-2.5 px-3 rounded-2xl border-4 border-purple-800 shadow-lg flex items-center justify-between transition active:scale-95 text-xs"
+                >
+                  <span>🏃 도망치기</span>
+                  <span className="text-[10px] bg-purple-800 px-1.5 py-0.5 rounded text-purple-200">30%/50%</span>
                 </button>
               </div>
             ) : (
